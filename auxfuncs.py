@@ -1,6 +1,10 @@
 import math
+import glob
+import pickle
 import numpy
 import scipy
+import scipy.interpolate
+import matplotlib.pyplot as plt
 
 def gaussian_point_intensity(point_coords, n, wavelength, w0, I0):
     """
@@ -139,6 +143,22 @@ def generate_fluorophore_field(w0, density, phoretype, existing=None, seed=42, s
         return numpy.vstack((existing,phores))
     
 def field_add_illumination_intensities(phores, n, wavelength, w0, I0):
+    """
+    Calculates (expected) illumination intensities for all points
+
+    Parameters
+    ----------
+    phores : 2D array
+        types and positions of fluorophores
+    n : float
+        refractive index of propagation medium
+    wavelength : float
+        illumination wavelength [m]
+    w0 : float
+        beam diameter at waist [m]
+    I0 : float
+        intensity in center of waist [W/m^2]
+    """
     phorenum = numpy.shape(phores)[0]
     intensities = numpy.empty(phorenum,dtype=float)
     for i in range(phorenum):
@@ -176,3 +196,68 @@ def incident_photons_per_exposure(exptime, wavelength, xsection, intensity):
         local illumination intensity
     """
     return exptime*xsection*intensity*wavelength/(scipy.constants.c*scipy.constants.h)
+
+def get_absorption_xsection(phoretype, wavelength):
+    """
+    Estimates cross section for photon absorption at given wavelength
+
+    Parameters
+    ----------
+    phoretype : int
+        fluorophore identifier
+    wavelength : float
+        illumination wavelength [m]
+    """
+    identifier = str(phoretype).zfill(3)
+    filepath = "dye_spectra/" + identifier + "_*_absorption.pkl"
+    pkl = glob.glob(filepath)
+    if (len(pkl) != 1):
+        print("Multiple files are sharing same identifier. Stopping.")
+        print(pkl)
+        quit()
+    with open(pkl[0], 'rb') as f:
+        xsection_function = pickle.load(f)
+    return xsection_function(wavelength)
+
+def interpolate_absorption_spectrum(filename, example_xsection, example_wavelength, show=False):
+    """
+    Interpolates the absorption spectrum from a file and saves the object
+
+    Parameters
+    ----------
+    filename : str
+        name of file containing the spectrum to be interpolated
+    example_xsection : float
+        absorption cross section of fluorophore at given wavelength [m^2]
+    example_wavelength : float
+        corresponding wavelength [nm]
+    show : bool
+        controls whether interpolation curve is shown
+    """
+    data = numpy.loadtxt(filename,dtype=float,delimiter="\t")
+    ftest = scipy.interpolate.interp1d(data[:,0],data[:,1])
+    c = ftest(example_wavelength)
+    multiplicative_factor = example_xsection/c
+    f = scipy.interpolate.interp1d(data[:,0],data[:,1]*multiplicative_factor)
+    if (show == True):
+        plt.plot(data[:,0],data[:,1]*multiplicative_factor, 'o', data[:,0], f(data[:,0]), '-')
+        plt.show()
+
+    pickle.dump(f,open(filename.replace(".txt", ".pkl"),"wb"))
+    return True
+
+def read_properties(phoretype):
+    """
+    Reads fluorophore properties from main file.
+    [absorption cross section, corresponding wavelength, quantum yield, fluorescence lifetime]
+
+    Parameters
+    ----------
+    phoretype : int
+        fluorophore identifier
+    """
+    out = numpy.genfromtxt("dye_spectra/properties.dat", usecols=(0,2,3,4,5),comments="#",skip_header=phoretype,max_rows=1)
+    if (int(out[0]) != phoretype):
+        print("File properties.dat either missing lines or containing bad data!")
+        quit()
+    return out[1:5]
