@@ -116,6 +116,7 @@ def generate_fluorophore_field(w0, density, phoretype, existing=None, seed=42, s
         maximum number of generated points
     """
     phorenum = int((w0*2*sizemultiplier)**2 * density)
+    print("%d points initialized." % (phorenum))
     if (phorenum > maxnum):
         response = input("Requested number of molecules %.2e exceeds the set maximum (%.2e).\nc = continue\nr = reduce density\nother keys = abort" % (phorenum, maxnum))
         if (response == "c"):
@@ -127,15 +128,23 @@ def generate_fluorophore_field(w0, density, phoretype, existing=None, seed=42, s
 
     setseed = numpy.random.SeedSequence(seed)
     rng = numpy.random.Generator(numpy.random.PCG64(setseed))
-    xpositions = rng.uniform([-w0*sizemultiplier,w0*sizemultiplier,phorenum])
-    ypositions = rng.uniform([-w0*sizemultiplier,w0*sizemultiplier,phorenum])
+    xpositions = rng.uniform(-w0*sizemultiplier,w0*sizemultiplier,phorenum)
+    ypositions = rng.uniform(-w0*sizemultiplier,w0*sizemultiplier,phorenum)
+    zpositions = numpy.full(phorenum, 0.0, dtype=float)
     types = numpy.full(phorenum, phoretype, dtype=int)
-    phores = numpy.concatenate((types, xpositions, ypositions)).reshape((-1, 3), order='F')
+    phores = numpy.concatenate((types, xpositions, ypositions,zpositions)).reshape((-1, 4), order='F')
     if (existing==None):
         return phores
     else:
         return numpy.vstack((existing,phores))
     
+def field_add_illumination_intensities(phores, n, wavelength, w0, I0):
+    phorenum = numpy.shape(phores)[0]
+    intensities = numpy.empty(phorenum,dtype=float)
+    for i in range(phorenum):
+        intensities[i] = gaussian_point_intensity((phores[i][1],phores[i][2],phores[i][3]), n, wavelength, w0, I0)
+    return intensities
+
 def illumination_fraction(NA, n):
     """
     Fraction of solid angle over which emitted light is collected
