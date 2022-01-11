@@ -3,6 +3,7 @@ import glob
 import pickle
 import numpy
 import scipy
+import scipy.stats
 import scipy.interpolate
 import matplotlib.pyplot as plt
 
@@ -197,28 +198,6 @@ def incident_photons_per_exposure(exptime, wavelength, xsection, intensity):
     """
     return exptime*xsection*intensity*wavelength/(scipy.constants.c*scipy.constants.h)
 
-def get_absorption_xsection(phoretype, wavelength):
-    """
-    Estimates cross section for photon absorption at given wavelength
-
-    Parameters
-    ----------
-    phoretype : int
-        fluorophore identifier
-    wavelength : float
-        illumination wavelength [m]
-    """
-    identifier = str(phoretype).zfill(3)
-    filepath = "dye_spectra/" + identifier + "_*_absorption.pkl"
-    pkl = glob.glob(filepath)
-    if (len(pkl) != 1):
-        print("Multiple files are sharing same identifier. Stopping.")
-        print(pkl)
-        quit()
-    with open(pkl[0], 'rb') as f:
-        xsection_function = pickle.load(f)
-    return xsection_function(wavelength)
-
 def interpolate_absorption_spectrum(filename, example_xsection, example_wavelength, show=False):
     """
     Interpolates the absorption spectrum from a file and saves the object
@@ -246,6 +225,66 @@ def interpolate_absorption_spectrum(filename, example_xsection, example_waveleng
     pickle.dump(f,open(filename.replace(".txt", ".pkl"),"wb"))
     return True
 
+def interpolate_emission_spectrum(filename, log=False, show=False):
+    """
+    Interpolates the emission spectrum from a file and saves the object
+
+    Parameters
+    ----------
+    filename : str
+        name of file containing the spectrum to be interpolated
+    log : bool
+        controls whether function is written as-is or converted to log(p) first 
+    show : bool
+        controls whether interpolation curve is shown
+    """
+    data = numpy.loadtxt(filename,dtype=float,delimiter="\t")
+    if (log == True):
+        f = scipy.interpolate.interp1d(data[:,0],numpy.log(data[:,1]))
+    else:
+        f = scipy.interpolate.interp1d(data[:,0],data[:,1])
+
+    if (show == True):
+        plt.plot(data[:,0], f(data[:,0]), '-')
+        plt.show()
+
+    pickle.dump(f,open(filename.replace(".txt", ".pkl"),"wb"))
+    return True
+
+def get_absorption_xsection(phoretype, wavelength):
+    """
+    Estimates cross section for photon absorption at given wavelength
+
+    Parameters
+    ----------
+    phoretype : int
+        fluorophore identifier
+    wavelength : float
+        illumination wavelength [m]
+    """
+    identifier = str(phoretype).zfill(3)
+    filepath = "dye_spectra/" + identifier + "_*_absorption.pkl"
+    pkl = glob.glob(filepath)
+    if (len(pkl) != 1):
+        print("Multiple files are sharing same identifier. Stopping.")
+        print(pkl)
+        quit()
+    with open(pkl[0], 'rb') as f:
+        xsection_function = pickle.load(f)
+    return xsection_function(wavelength)
+
+def get_emission_spectrum(phoretype):
+    identifier = str(phoretype).zfill(3)
+    filepath = "dye_spectra/" + identifier + "_*_emission.pkl"
+    pkl = glob.glob(filepath)
+    if (len(pkl) != 1):
+        print("Multiple files are sharing same identifier. Stopping.")
+        print(pkl)
+        quit()
+    with open(pkl[0], 'rb') as f:
+        emission_function = pickle.load(f)
+    return emission_function
+
 def read_properties(phoretype):
     """
     Reads fluorophore properties from main file.
@@ -261,3 +300,36 @@ def read_properties(phoretype):
         print("File properties.dat either missing lines or containing bad data!")
         quit()
     return out[1:5]
+
+def naive_rejection_sampler(spectrum,lowbound,highbound):
+    """
+    Keeps rejection sampling a distribution until it succeeds
+
+    Parameters
+    ----------
+    spectrum : obj
+        interpolation result
+    lowbound : float
+        lower bound of spectrum
+    highbound : float
+        high bound of spectrum
+    """
+    #The following sampling function is a placeholder for one specific fluorophore type
+    #determined by trial and error.
+    laplace = scipy.stats.laplace_asymmetric(loc=512.0, scale=25,kappa=0.6)
+    M=80.0
+    while(True):
+        r = scipy.stats.laplace_asymmetric.rvs(loc=512.0, scale=25,kappa=0.6)
+        if (r<lowbound or r>highbound):
+            continue
+        envelope = M*scipy.stats.laplace_asymmetric.pdf(r,loc=512.0, scale=25,kappa=0.6)
+        p = numpy.random.uniform(0, envelope)
+        if (p < spectrum(r)):
+            return r
+
+""" emission_spectrum_1 = get_emission_spectrum(1)
+evals = numpy.linspace(emission_spectrum_1.x[0],emission_spectrum_1.x[-1],num=200)
+samples = [naive_rejection_sampler(emission_spectrum_1,emission_spectrum_1.x[0],emission_spectrum_1.x[-1]) for x in range(5000)]
+plt.hist(samples, density=True, bins=20)
+plt.plot(evals,emission_spectrum_1(evals)/50.0)
+plt.show() """
