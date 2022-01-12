@@ -190,7 +190,7 @@ def incident_photons_per_exposure(exptime, wavelength, xsection, intensity):
     exptime : float
         exposure time per image, assumed to be identical to illumination time [s]
     wavelength : float
-        laser wavelength [m]
+        laser wavelength [nm]
     xsection : float
         absorption cross section for given wavelength [square meters]
     intensity : float
@@ -200,7 +200,7 @@ def incident_photons_per_exposure(exptime, wavelength, xsection, intensity):
 
 def interpolate_absorption_spectrum(filename, example_xsection, example_wavelength, show=False):
     """
-    Interpolates the absorption spectrum from a file and saves the object
+    Interpolates the absorption spectrum from a file, scales it per-molecule and saves the object
 
     Parameters
     ----------
@@ -260,13 +260,13 @@ def get_absorption_xsection(phoretype, wavelength):
     phoretype : int
         fluorophore identifier
     wavelength : float
-        illumination wavelength [m]
+        illumination wavelength [nm]
     """
     identifier = str(phoretype).zfill(3)
     filepath = "dye_spectra/" + identifier + "_*_absorption.pkl"
     pkl = glob.glob(filepath)
     if (len(pkl) != 1):
-        print("Multiple files are sharing same identifier. Stopping.")
+        print("Multiple absorption files are sharing same identifier. Stopping.")
         print(pkl)
         quit()
     with open(pkl[0], 'rb') as f:
@@ -274,16 +274,29 @@ def get_absorption_xsection(phoretype, wavelength):
     return xsection_function(wavelength)
 
 def get_emission_spectrum(phoretype):
+    """
+    Loads emission spectrum for chosen fluorophore type
+
+    Parameters
+    ----------
+    phoretype : int
+        fluorophore identifier
+    """
     identifier = str(phoretype).zfill(3)
     filepath = "dye_spectra/" + identifier + "_*_emission.pkl"
     pkl = glob.glob(filepath)
     if (len(pkl) != 1):
-        print("Multiple files are sharing same identifier. Stopping.")
+        print("Multiple emission files are sharing same identifier. Stopping.")
         print(pkl)
         quit()
     with open(pkl[0], 'rb') as f:
         emission_function = pickle.load(f)
     return emission_function
+
+def get_filter_spectrum(filter_name):
+    with open("filter_spectra/" + filter_name + ".pkl", 'rb') as f:
+        filter_function = pickle.load(f)
+    return filter_function
 
 def read_properties(phoretype):
     """
@@ -314,8 +327,9 @@ def naive_rejection_sampler(spectrum,lowbound,highbound):
     highbound : float
         high bound of spectrum
     """
-    #The following sampling function is a placeholder for one specific fluorophore type
-    #determined by trial and error.
+    #NOTE: The following sampling function is a placeholder for one specific fluorophore type
+    #and will be replaced by an existing implementation.
+    #Envelope function was determined by trial and error.
     laplace = scipy.stats.laplace_asymmetric(loc=512.0, scale=25,kappa=0.6)
     M=80.0
     while(True):
@@ -327,9 +341,84 @@ def naive_rejection_sampler(spectrum,lowbound,highbound):
         if (p < spectrum(r)):
             return r
 
-""" emission_spectrum_1 = get_emission_spectrum(1)
-evals = numpy.linspace(emission_spectrum_1.x[0],emission_spectrum_1.x[-1],num=200)
-samples = [naive_rejection_sampler(emission_spectrum_1,emission_spectrum_1.x[0],emission_spectrum_1.x[-1]) for x in range(5000)]
-plt.hist(samples, density=True, bins=20)
-plt.plot(evals,emission_spectrum_1(evals)/50.0)
-plt.show() """
+def collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_photons, quantum_yield, detector_qeff, illumination, rng):
+    """
+    Calculates mean number of photons collected by detector during the exposure time
+
+    Parameters
+    ----------
+    emission_spectrum : obj
+        interpolation result
+    filter_spectrum : obj
+        interpolation result
+    incident_photons : float
+        mean number of photons incident on fluorophore per exposure time
+    quantum_eff : float
+        quantum efficiency of fluorophore
+    detector_quantum_eff : float
+        quantum efficiency of detector
+    illumination : float
+        probability that an emitted photon is collected by microscope optics
+    rng : obj
+        random number generator (for checking whether photons get transmitted)
+    """
+    emitted_photons_at_filter = incident_photons*quantum_yield*illumination
+    collected_photons = 0
+    for i in range(int(emitted_photons_at_filter)):
+        photon_wavelength = naive_rejection_sampler(emission_spectrum,emission_spectrum.x[0],emission_spectrum.x[-1])
+        if (photon_wavelength > filter_spectrum.x[0] and photon_wavelength < filter_spectrum.x[-1]):
+            collected_photons += 1
+            probability = filter_spectrum(photon_wavelength)
+            if (rng.uniform() < probability == True):
+                collected_photons += 1
+            else:
+                continue             
+        else:
+            continue
+    return collected_photons*detector_qeff
+
+def calculate_single_image(phores, intensities, filter_spectrum, NA, n, wavelength, exptime, detector_qeff, rng_seed):
+    """
+    Calculates projected photon counts at detector for all fluorophores. 
+
+    Parameters
+    ----------
+    phores : 2D array
+        types and positions of fluorophores
+    intensities : 1D array
+        illumination intensities at fluorophores
+    filter_spectrum : obj
+        interpolation result
+    NA : float
+        numerical aperture
+    n : float
+        refractive index of propagation medium
+    wavelength : float
+        laser wavelength [nm]
+    exptime : float
+        exposure time [s]
+    detector_qeff : float
+        quantum efficiency of camera/detector
+    rng_seed : int
+        seed for random number generator
+    """
+
+    phorenum = numpy.shape(phores)[0]
+    photon_counts = numpy.empty(phorenum,dtype=float)
+    illumination = illumination_fraction(NA,n)
+
+    setseed = numpy.random.SeedSequence(rng_seed)
+    rng = numpy.random.Generator(numpy.random.PCG64(setseed))
+        
+    phoretypes = numpy.unique(phores[:,0]).astype(int)
+
+    for phoretype in phoretypes:
+        xsection = get_absorption_xsection(phoretype,wavelength)
+        emission_spectrum = get_emission_spectrum(phoretype)
+        _,_,quantum_yield,_ = read_properties(phoretype)
+        for i in range(phorenum):
+            if (phores[i,0] == phoretype):
+                incident_photons = incident_photons_per_exposure(exptime, wavelength, xsection, intensities[i])
+                photon_counts[i] = collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_photons, quantum_yield, detector_qeff, illumination, rng)
+    
+    return photon_counts

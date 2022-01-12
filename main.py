@@ -1,0 +1,31 @@
+import auxfuncs as aux
+import numpy
+import matplotlib.pyplot as plt
+
+w0 = 1e-6
+density = 1e13
+wavelength = 490e-9
+I0 = 1e-2
+n = 1.003
+NA = 0.34
+exptime = 0.001
+detector_qeff = 0.9
+phoretype = 1
+
+phores = aux.generate_fluorophore_field(w0, density, phoretype, seed=42, sizemultiplier=2)
+intensities = aux.field_add_illumination_intensities(phores, n, wavelength, w0, I0)
+
+xsection = aux.get_absorption_xsection(phoretype,wavelength*1e9)
+
+max_photons = aux.incident_photons_per_exposure(exptime, wavelength*1e9, xsection, numpy.amax(intensities))
+print("Max. number of incident photons per fluorophore is %f." % (max_photons))
+
+rng_seed = 17
+filter_spectrum = aux.get_filter_spectrum("test_filter")
+
+photon_counts = aux.calculate_single_image(phores, intensities, filter_spectrum, NA, n, wavelength*1e9, exptime, detector_qeff, rng_seed)
+
+fig = plt.figure()
+ax = fig.add_subplot(projection="3d")
+ax.scatter(phores[:,1],phores[:,2],photon_counts)
+plt.show()
