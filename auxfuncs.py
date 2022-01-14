@@ -2,10 +2,12 @@ import math
 import glob
 import pickle
 import numpy
+from numba import jit
 import scipy
 import scipy.stats
 import scipy.interpolate
 import matplotlib.pyplot as plt
+
 
 def gaussian_point_intensity(point_coords, n, wavelength, w0, I0):
     """
@@ -142,6 +144,7 @@ def generate_fluorophore_field(w0, density, phoretype, existing=None, seed=42, s
         return phores
     else:
         return numpy.vstack((existing,phores))
+    
     
 def field_add_illumination_intensities(phores, n, wavelength, w0, I0):
     """
@@ -314,6 +317,7 @@ def read_properties(phoretype):
         quit()
     return out[1:5]
 
+
 def naive_rejection_sampler(spectrum,lowbound,highbound):
     """
     Keeps rejection sampling a distribution until it succeeds
@@ -422,3 +426,24 @@ def calculate_single_image(phores, intensities, filter_spectrum, NA, n, waveleng
                 photon_counts[i] = collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_photons, quantum_yield, detector_qeff, illumination, rng)
     
     return photon_counts
+
+def pixel_binning(phores,photon_counts,field_size,pixel_size):
+    """
+    Bins photon counts at detector according to effective pixel size
+
+    Parameters
+    ----------
+    phores : 2D array
+        types and positions of fluorophores
+    photon_counts : 1D array
+        numbers of detected photons per fluorophore 
+    field_size : float
+        dimension of fluorophore field [m]
+    pixel_size : float
+        length corresponding to microscope resolution [m]
+    """
+    numbins = math.floor(0.5*(field_size-pixel_size)/pixel_size)
+    range = [[-(numbins+0.5)*pixel_size, (numbins+0.5)*pixel_size], [-(numbins+0.5)*pixel_size, (numbins+0.5)*pixel_size]]
+    hist,xedges,yedges = numpy.histogram2d(phores[:,1],phores[:,2],2*numbins+1,range,density=False,weights=photon_counts)
+    
+    return hist,xedges,yedges
