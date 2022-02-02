@@ -2,7 +2,6 @@ import math
 import glob
 import pickle
 import numpy
-from numba import jit
 import scipy
 import scipy.stats
 import scipy.interpolate
@@ -140,10 +139,10 @@ def generate_fluorophore_field(w0, density, phoretype, existing=None, seed=42, s
     zpositions = numpy.full(phorenum, 0.0, dtype=float)
     types = numpy.full(phorenum, phoretype, dtype=int)
     phores = numpy.concatenate((types, xpositions, ypositions,zpositions)).reshape((-1, 4), order='F')
-    if (existing==None):
-        return phores
-    else:
+    if (isinstance(existing,numpy.ndarray)):
         return numpy.vstack((existing,phores))
+    else:
+        return phores
     
     
 def field_add_illumination_intensities(phores, n, wavelength, w0, I0):
@@ -442,7 +441,7 @@ def pixel_binning(phores,photon_counts,field_size,pixel_size):
     pixel_size : float
         length corresponding to microscope resolution [m]
     """
-    numbins = math.floor(0.5*(field_size-pixel_size)/pixel_size)
+    numbins = math.floor(2*(field_size-0.5*pixel_size)/pixel_size)+1
     range = [[-(numbins+0.5)*pixel_size, (numbins+0.5)*pixel_size], [-(numbins+0.5)*pixel_size, (numbins+0.5)*pixel_size]]
     hist,xedges,yedges = numpy.histogram2d(phores[:,1],phores[:,2],2*numbins+1,range,density=False,weights=photon_counts)
     
