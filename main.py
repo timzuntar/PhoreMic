@@ -1,22 +1,25 @@
 import auxfuncs as aux
+import plots
 import numpy
 import matplotlib.pyplot as plt
 
 w0 = 1e-6
-density = 1e13
+density = 5e13
 wavelength = 490e-9
 I0 = 5e-2
 n = 1.003
 NA = 0.34
-exptime = 0.01
+exptime = 0.001
 detector_qeff = 0.9
 phoretype = 1
-pixel_size = 0.1e-6
+pixel_size = 0.3e-6
 
-field_size = 2
+field_size = 1.5
 
 phores = aux.generate_fluorophore_field(w0, density, phoretype, seed=42, sizemultiplier=field_size)
 intensities = aux.field_add_illumination_intensities(phores, n, wavelength, w0, I0)
+
+plots.display_2D_fluorophore_field(phores,w0)
 
 xsection = aux.get_absorption_xsection(phoretype,wavelength*1e9)
 
@@ -28,17 +31,9 @@ filter_spectrum = aux.get_filter_spectrum("test_filter")
 
 photon_counts = aux.calculate_single_image(phores, intensities, filter_spectrum, NA, n, wavelength*1e9, exptime, detector_qeff, rng_seed)
 
-fig = plt.figure()
-ax = fig.add_subplot(projection="3d")
-ax.scatter(phores[:,1],phores[:,2],photon_counts)
-plt.show()
+plots.display_detected_photon_counts(phores,w0,photon_counts)
 
 #placeholder; right now all types of fluorophores are output on the same histogram, potentially reducing performance 
 hist,_,_ = aux.pixel_binning(phores,photon_counts,w0*field_size,pixel_size)
 
-fig = plt.figure(figsize=(6, 6))
-ax = fig.add_subplot(111)
-ax.set_title('colorMap')
-plt.imshow(hist)
-ax.set_aspect('equal')
-plt.show()
+plots.display_detected_image(hist)
