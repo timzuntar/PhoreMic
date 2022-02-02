@@ -16,7 +16,7 @@ So far, the code can randomly generate a set of positions for the desired type o
 
 <figure>
   <img
-  src="https://github.com/timzuntar/PhoreMic/blob/master/readme_images/example_phore_map.png?raw=true"
+  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_phore_map.png?raw=true"
   alt="Generated fluorophores"
   width="500">
   <figcaption>Fluorophore locations</figcaption>
@@ -26,7 +26,7 @@ So far, the code can randomly generate a set of positions for the desired type o
 
 <figure>
   <img
-  src="https://github.com/timzuntar/PhoreMic/blob/master/readme_images/example_photon_map.png?raw=true"
+  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_photon_map.png?raw=true"
   alt="Photon detection numbers"
   width="500">
   <figcaption>Detected photon numbers</figcaption>
@@ -36,7 +36,7 @@ So far, the code can randomly generate a set of positions for the desired type o
 
 <figure>
   <img
-  src="https://github.com/timzuntar/PhoreMic/blob/master/readme_images/example_pixel_map.png?raw=true"
+  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_pixel_map.png?raw=true"
   alt="Pixel map"
   width="500">
   <figcaption>Detected image</figcaption>
