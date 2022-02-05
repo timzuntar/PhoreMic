@@ -216,7 +216,23 @@ def generate_fluorophore_field(w0, density, phoretype, existing=None, seed=42, v
         return numpy.vstack((existing,phores))
     else:
         return phores
-    
+
+def get_all_xsections(phores,wavelength):
+    """
+    Returns absorption cross sections for all fluorophore types.    
+
+    Parameters
+    ----------
+    phores : 2D array
+        types and positions of fluorophores
+    wavelength : float
+        illumination wavelength [m]
+    """
+    phoretypes = numpy.unique(phores[:,0]).astype(int)
+    xsections = numpy.empty(len(phoretypes))
+    for i,type in enumerate(phoretypes):
+        xsections[i] = get_absorption_xsection(type,wavelength*1e9)
+    return xsections
     
 def field_add_illumination_intensities(phores, n, wavelength, w0, I0):
     """
@@ -272,6 +288,18 @@ def incident_photons_per_exposure(exptime, wavelength, xsection, intensity):
         local illumination intensity
     """
     return exptime*xsection*intensity*wavelength/(scipy.constants.c*scipy.constants.h)
+
+def all_incident(phores, exptime, wavelength, xsections, intensities):
+    phorenum = numpy.shape(phores)[0]
+    incident_counts = numpy.empty(phorenum,dtype=float)
+    phoretypes = numpy.unique(phores[:,0]).astype(int)
+
+    for t,phoretype in enumerate(phoretypes):
+        xsection = xsections[t]
+        for i in range(phorenum):
+            if (phores[i,0] == phoretype):
+                incident_counts[i] = incident_photons_per_exposure(exptime,wavelength,xsection,intensities[i])
+    return incident_counts    
 
 def interpolate_absorption_spectrum(filename, example_xsection, example_wavelength, show=False):
     """
@@ -453,7 +481,7 @@ def collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_
             continue
     return collected_photons*detector_qeff
 
-def calculate_single_image(phores, intensities, filter_spectrum, NA, n, wavelength, exptime, detector_qeff, rng_seed):
+def calculate_single_image(phores, incident_photons, filter_spectrum, NA, n, detector_qeff, rng_seed):
     """
     Calculates projected photon counts at detector for all fluorophores. 
 
@@ -488,14 +516,12 @@ def calculate_single_image(phores, intensities, filter_spectrum, NA, n, waveleng
         
     phoretypes = numpy.unique(phores[:,0]).astype(int)
 
-    for phoretype in phoretypes:
-        xsection = get_absorption_xsection(phoretype,wavelength)
+    for t,phoretype in enumerate(phoretypes):
         emission_spectrum = get_emission_spectrum(phoretype)
         _,_,quantum_yield,_ = read_properties(phoretype)
         for i in range(phorenum):
             if (phores[i,0] == phoretype):
-                incident_photons = incident_photons_per_exposure(exptime, wavelength, xsection, intensities[i])
-                photon_counts[i] = collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_photons, quantum_yield, detector_qeff, illumination, rng)
+                photon_counts[i] = collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_photons[i], quantum_yield, detector_qeff, illumination, rng)
     
     return photon_counts
 

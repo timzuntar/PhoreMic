@@ -1,35 +1,42 @@
 import auxfuncs as aux
 import plots
+import math
 import numpy
 import matplotlib.pyplot as plt
 
-w0 = 1e-6
+#fluorophore parameters
 density = 5e13
-wavelength = 490e-9
-I0 = 5e-2
+phoretype = 1
+#sample and setup parameters
 n = 1.003
 NA = 0.34
 exptime = 0.001
 detector_qeff = 0.9
-phoretype = 1
 pixel_size = 0.3e-6
-
 field_size = 1.5
+#excitation beam parameters
+w0 = 1e-6
+wavelength = 490e-9
+Pexc = 1e-4
+I0 = 2*Pexc/(math.pi*(w0**2))
 
-phores = aux.generate_fluorophore_field(w0, density, phoretype, seed=42, volume=True, latmultiplier=field_size, axmultiplier=field_size)
+phores = aux.generate_fluorophore_field(w0, density, phoretype, seed=42, latmultiplier=field_size, axmultiplier=field_size)
 intensities = aux.field_add_illumination_intensities(phores, n, wavelength, w0, I0)
 
 plots.display_2D_fluorophore_field(phores,w0)
 
-xsection = aux.get_absorption_xsection(phoretype,wavelength*1e9)
+xsections = aux.get_all_xsections(phores,wavelength)
+print(xsections)
 
-max_photons = aux.incident_photons_per_exposure(exptime, wavelength*1e9, xsection, numpy.amax(intensities))
+incident_photons = aux.all_incident(phores, exptime, wavelength, xsections, intensities)
+
+max_photons = numpy.amax(incident_photons)
 print("Max. number of incident photons per fluorophore is %f." % (max_photons))
 
 rng_seed = 17
 filter_spectrum = aux.get_filter_spectrum("test_filter")
 
-photon_counts = aux.calculate_single_image(phores, intensities, filter_spectrum, NA, n, wavelength*1e9, exptime, detector_qeff, rng_seed)
+photon_counts = aux.calculate_single_image(phores, incident_photons, filter_spectrum, NA, n, detector_qeff, rng_seed)
 
 plots.display_detected_photon_counts(phores,w0,photon_counts)
 
