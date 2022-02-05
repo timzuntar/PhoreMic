@@ -100,7 +100,69 @@ def STED_2D_intensity_normalization(n, STEDwavelength, P, R, f, lossfactor=0.0, 
     integral = scipy.integrate.simpson(ilist,rlist)
     return P/integral
 
-def generate_fluorophore_field(w0, density, phoretype, existing=None, seed=42, sizemultiplier=5, maxnum=1e7):
+def STED_saturation_intensity(lifetime, STxsection, STwavelength):
+    """
+    Saturation intensity of STED beam
+
+    Parameters
+    ----------
+    lifetime : float
+        fluorescence lifetime of molecule [s]
+    STxsection : float
+        cross-section for stimulated emission [square meters]
+    STwavelength : float
+        wavelength of STED beam
+    """
+
+    ks1 = 1.0/lifetime
+    return scipy.constants.c*scipy.constants.h*ks1/(STxsection*STwavelength)
+
+def STED_effective_saturation(I, Isat, ks1, vibrelaxrate):
+    """
+    Effective saturation factor (gamma)
+    
+    Parameters
+    ----------
+    I : float
+        intensity of STED beam at point [W/m^2]
+    Isat : float
+        saturation intensity [W/m^2]
+    ks1 : float
+        rate of spontaneous fluorescence (inverse of lifetime) [1/s]
+    vibrelaxrate : float
+        rate of vibrational relaxation into ground state [1/s]
+    """
+    xi = I/Isat
+    return (xi*vibrelaxrate)/(xi*ks1 + vibrelaxrate)
+
+def STED_CW_rates(I,Isat,kex, ks1, vibrelaxrate,intersystem=0,kt1=1.0):
+    """
+    Probability for spontaneous decay and its rate for continuous STED illumination 
+    
+    Parameters
+    ----------
+    I : float
+        intensity of STED beam at point [W/m^2]
+    Isat : float
+        saturation intensity [W/m^2]
+    kex : float
+        excitation rate (illumination-dependent) [1/s]
+    ks1 : 
+        rate of spontaneous fluorescence (inverse of lifetime) [1/s]
+    vibrelaxrate : float
+        rate of vibrational relaxation into ground state [1/s]
+    intersystem : float
+        intersystem crossing yield (probability for decay to triplet state)
+    kt1 : float
+        decay rate of triplet state [1/s]
+    """
+    gamma = STED_effective_saturation(I,Isat,ks1,vibrelaxrate)
+    kexprime = kex*vibrelaxrate/(kex+vibrelaxrate)
+    spontaneous_rate = 1.0/((1+gamma)/kexprime + 1.0/ks1 + intersystem/kt1)
+    spontaneous_probability = (1.0/kexprime + 1.0/ks1 + intersystem/kt1)*spontaneous_rate
+    return spontaneous_rate,spontaneous_probability
+
+def generate_fluorophore_field(w0, density, phoretype, existing=None, seed=42, volume=False, latmultiplier=5, axmultiplier=1, maxnum=1e7):
     """
     Randomly generates positions of fluorescing molecules
 
@@ -109,19 +171,27 @@ def generate_fluorophore_field(w0, density, phoretype, existing=None, seed=42, s
     w0 : float
         beam waist diameter [m]
     density : float
-        number density of fluorescing molecules [per square meter]
+        number density of fluorescing molecules [per square meter in 2D / per cubic meter in 3D]
     phoretype : int
         fluorophore identifier
     existing : 2D array
         previous array; output of function consists of new entries concatenated with previous ones
     seed : int
         seed to random number generator
-    sizemultiplier : float
+    volume : bool
+        controls whether a 3D or 2D fluorophore field is generated
+    latmultiplier : float
         width and height of created field in multiples of beam waist diameter
+    axmultiplier : float
+        as latmultiplier, but along the z-axis
     maxnum : int
         maximum number of generated points
     """
-    phorenum = int((w0*2*sizemultiplier)**2 * density)
+    if (volume == False):
+        phorenum = int((w0*2*latmultiplier)**2 * density)
+    else:
+        phorenum = int((w0*2*latmultiplier)**2 * (w0*2*axmultiplier) * density)
+
     print("%d points initialized." % (phorenum))
     if (phorenum > maxnum):
         response = input("Requested number of molecules %.2e exceeds the set maximum (%.2e).\nc = continue\nr = reduce density\nother keys = abort" % (phorenum, maxnum))
@@ -134,9 +204,12 @@ def generate_fluorophore_field(w0, density, phoretype, existing=None, seed=42, s
 
     setseed = numpy.random.SeedSequence(seed)
     rng = numpy.random.Generator(numpy.random.PCG64(setseed))
-    xpositions = rng.uniform(-w0*sizemultiplier,w0*sizemultiplier,phorenum)
-    ypositions = rng.uniform(-w0*sizemultiplier,w0*sizemultiplier,phorenum)
-    zpositions = numpy.full(phorenum, 0.0, dtype=float)
+    xpositions = rng.uniform(-w0*latmultiplier,w0*latmultiplier,phorenum)
+    ypositions = rng.uniform(-w0*latmultiplier,w0*latmultiplier,phorenum)
+    if (volume == False):
+        zpositions = numpy.full(phorenum, 0.0, dtype=float)
+    else:
+        zpositions = rng.uniform(-w0*axmultiplier,w0*axmultiplier,phorenum)
     types = numpy.full(phorenum, phoretype, dtype=int)
     phores = numpy.concatenate((types, xpositions, ypositions,zpositions)).reshape((-1, 4), order='F')
     if (isinstance(existing,numpy.ndarray)):

@@ -16,7 +16,7 @@ pixel_size = 0.3e-6
 
 field_size = 1.5
 
-phores = aux.generate_fluorophore_field(w0, density, phoretype, seed=42, sizemultiplier=field_size)
+phores = aux.generate_fluorophore_field(w0, density, phoretype, seed=42, volume=True, latmultiplier=field_size, axmultiplier=field_size)
 intensities = aux.field_add_illumination_intensities(phores, n, wavelength, w0, I0)
 
 plots.display_2D_fluorophore_field(phores,w0)
