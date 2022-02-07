@@ -114,8 +114,29 @@ def STED_saturation_intensity(lifetime, STxsection, STwavelength):
         wavelength of STED beam
     """
 
-    ks1 = 1.0/lifetime
+    ks1 = 1.0/(lifetime*1e-9)
     return scipy.constants.c*scipy.constants.h*ks1/(STxsection*STwavelength)
+
+def STED_get_all_Isat(phores, STxsection, STwavelength):
+    """
+    Calculates saturation intensities for all fluorophore types
+    
+    Parameters
+    ----------
+    phores : 2D array
+        types and positions of fluorophores
+    STxsection : float
+        cross-section for stimulated emission [square meters]
+    STEDwavelength : float
+        wavelength of depletion beam [m]
+    """
+    phoretypes = numpy.unique(phores[:,0]).astype(int)
+    Isats = numpy.empty(len(phoretypes))
+
+    for i,type in enumerate(phoretypes):
+        _,_,_,lifetime = read_properties(type)
+        Isats[i] = STED_saturation_intensity(lifetime,STxsection,STwavelength*1e-9)
+    return Isats
 
 def STED_effective_saturation(I, Isat, ks1, vibrelaxrate):
     """
@@ -135,7 +156,27 @@ def STED_effective_saturation(I, Isat, ks1, vibrelaxrate):
     xi = I/Isat
     return (xi*vibrelaxrate)/(xi*ks1 + vibrelaxrate)
 
-def STED_CW_rates(I,Isat,kex, ks1, vibrelaxrate,intersystem=0,kt1=1.0):
+def STED_cross_section(phoretype, STEDwavelength, n):
+    """
+    Calculates cross section for stimulated emission based on fluorophore properties
+    NOTE: formula needs fixing, spectral lineshape function is likely wrong
+
+    Parameters
+    ----------
+    phoretype : int
+        fluorophore identifier
+    STEDwavelength : float
+        wavelength of depletion beam [m]
+    n : float
+        refractive index of propagation medium
+    """
+    _,_,_,lifetime = read_properties(phoretype)
+    emission_spectrum = get_emission_spectrum(phoretype)
+    shape = emission_spectrum(STEDwavelength)
+    ks1 = 1.0/(lifetime*1e-9)
+    return ks1*((STEDwavelength*1e-9)**2)*shape/(8*math.pi*(n**2))
+
+def STED_CW_rates(I, Isat, kex, ks1, vibrelaxrate, intersystem=0, kt1=1.0):
     """
     Probability for spontaneous decay and its rate for continuous STED illumination 
     
@@ -160,7 +201,7 @@ def STED_CW_rates(I,Isat,kex, ks1, vibrelaxrate,intersystem=0,kt1=1.0):
     kexprime = kex*vibrelaxrate/(kex+vibrelaxrate)
     spontaneous_rate = 1.0/((1+gamma)/kexprime + 1.0/ks1 + intersystem/kt1)
     spontaneous_probability = (1.0/kexprime + 1.0/ks1 + intersystem/kt1)*spontaneous_rate
-    return spontaneous_rate,spontaneous_probability
+    return spontaneous_rate,spontaneous_probability  
 
 def generate_fluorophore_field(w0, density, phoretype, existing=None, seed=42, volume=False, latmultiplier=5, axmultiplier=1, maxnum=1e7):
     """
@@ -257,6 +298,27 @@ def field_add_illumination_intensities(phores, n, wavelength, w0, I0):
         intensities[i] = gaussian_point_intensity((phores[i][1],phores[i][2],phores[i][3]), n, wavelength, w0, I0)
     return intensities
 
+def field_STED_illumination_intensities(phores, STEDwavelength, P, NA):
+    """
+    Calculates (expected) intensities of STED beam at all points
+
+    Parameters
+    ----------
+    phores : 2D array
+        types and positions of fluorophores
+    STEDwavelength : float
+        wavelength of depletion beam [m]
+    P : float
+        total beam power [W]
+    NA : float
+        numerical aperture of depletion beam
+    """
+    phorenum = numpy.shape(phores)[0]
+    STEDintensities = numpy.empty(phorenum,dtype=float)
+    for i in range(phorenum):
+        STEDintensities[i] = STED_2D_approx_point_intensity((phores[i][1],phores[i][2],phores[i][3]), STEDwavelength*1e-9, P, NA)
+    return STEDintensities
+
 def illumination_fraction(NA, n):
     """
     Fraction of solid angle over which emitted light is collected
@@ -283,13 +345,29 @@ def incident_photons_per_exposure(exptime, wavelength, xsection, intensity):
     wavelength : float
         laser wavelength [nm]
     xsection : float
-        absorption cross section for given wavelength [square meters]
+        absorption cross section for given wavelength [m^2]
     intensity : float
-        local illumination intensity
+        local illumination intensity [W/m^2]
     """
     return exptime*xsection*intensity*wavelength/(scipy.constants.c*scipy.constants.h)
 
 def all_incident(phores, exptime, wavelength, xsections, intensities):
+    """
+    Expected absorbed photon numbers for all fluorophores
+
+    Parameters
+    ----------
+    phores : 2D array
+        types and positions of fluorophores
+    exptime : float
+        exposure time per image, assumed to be identical to illumination time [s]
+    wavelength : float
+        laser wavelength [nm]
+    xsections : 1D array
+        absorption cross sections of fluorophore species at given wavelength [m^2]
+    intensities : 1D array
+        local illumination intensities for all molecules [W/m^2]
+    """
     phorenum = numpy.shape(phores)[0]
     incident_counts = numpy.empty(phorenum,dtype=float)
     phoretypes = numpy.unique(phores[:,0]).astype(int)
@@ -300,6 +378,50 @@ def all_incident(phores, exptime, wavelength, xsections, intensities):
             if (phores[i,0] == phoretype):
                 incident_counts[i] = incident_photons_per_exposure(exptime,wavelength,xsection,intensities[i])
     return incident_counts    
+
+def STED_all_incident(phores, intensities, STEDintensities, exptime, wavelength, exc_rates, xsections, Isats, vibrelaxrate, intersystem=0, kt1=1.0):
+    """
+    Expected numbers of absorbed photons that undergo spontaneous decay under STED illumination  
+
+    Parameters
+    ----------
+    phores : 2D array
+        types and positions of fluorophores
+    intensities : 1D array
+        local illumination intensities for all molecules [W/m^2]
+    STEDintensities : 1D array
+        local illumination intensities of depletion beam [W/m^2]
+    exptime : float
+        exposure time [s]
+    wavelength : float
+        illumination wavelength [nm]
+    exc_rates : 1D array
+        excitation rates of all molecules (illumination-dependent) [1/s]
+    xsections : 1D array
+        absorption cross sections of fluorophore species at given wavelength [m^2]
+    Isats : 1D array
+        saturation intensities of fluorophore species [W/m^2]
+    vibrelaxrate : float
+        rate of vibrational relaxation into ground state [1/s]
+    intersystem : float
+        intersystem crossing yield (probability for decay to triplet state)
+    kt1 : float
+        decay rate of triplet state [1/s]
+    """
+    phorenum = numpy.shape(phores)[0]
+    incident_counts = numpy.empty(phorenum,dtype=float)
+    phoretypes = numpy.unique(phores[:,0]).astype(int)
+
+    for t,phoretype in enumerate(phoretypes):
+        xsection = xsections[t]
+        Isat = Isats[t]
+        _,_,_,lifetime = read_properties(phoretype)
+        ks1 = 1.0/(lifetime*1e-9)
+        for i in range(phorenum):
+            if (phores[i,0] == phoretype):
+                _,prob = STED_CW_rates(STEDintensities[i], Isat, exc_rates[i], ks1, vibrelaxrate, intersystem=0, kt1=1.0)
+                incident_counts[i] = prob*incident_photons_per_exposure(exptime,wavelength,xsection,intensities[i])
+    return incident_counts  
 
 def interpolate_absorption_spectrum(filename, example_xsection, example_wavelength, show=False):
     """
@@ -416,7 +538,6 @@ def read_properties(phoretype):
         print("File properties.dat either missing lines or containing bad data!")
         quit()
     return out[1:5]
-
 
 def naive_rejection_sampler(spectrum,lowbound,highbound):
     """
