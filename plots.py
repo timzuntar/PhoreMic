@@ -23,9 +23,9 @@ def display_2D_fluorophore_field(phores, w0):
     ax.add_patch(beamwaist)
     for type in phoretypes:
         typelabel = "fluorophore type " + str(type)
-        ax.scatter(phores[phores[:, 0] == type,1]*1e6,phores[phores[:,0] == type,2]*1e6,label=typelabel)
+        ax.scatter(phores[phores[:, 0] == type,1]*1e6,phores[phores[:,0] == type,2]*1e6,label=typelabel,s=1)
     
-    ax.axis('equal',adjustable='box')
+    ax.axis('equal')
     fig.legend()
 
     plt.title("Generated fluorophore map")
@@ -52,9 +52,9 @@ def display_detected_photon_counts(phores,w0,photon_counts):
     fig = plt.figure()
     ax = fig.add_subplot()
     ax.add_patch(beamwaist)
-    points = ax.scatter(x=phores[:,1]*1e6,y=phores[:,2]*1e6,c=photon_counts,vmin=numpy.min(photon_counts), vmax=numpy.max(photon_counts))
+    points = ax.scatter(x=phores[:,1]*1e6,y=phores[:,2]*1e6,c=photon_counts,vmin=numpy.min(photon_counts), vmax=numpy.max(photon_counts),s=1)
     plt.colorbar(points)
-    ax.axis('equal',adjustable='box')
+    ax.axis('equal')
     
     plt.title("Number of detected photons per fluorophore")
     plt.xlabel(r"X [$\mu$m]")
