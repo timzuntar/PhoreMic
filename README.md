@@ -3,7 +3,7 @@
 
 ### Purpose
 
-The eventual goal is to achieve (somewhat) accurate simulation and visualization of fluorescence imaging for several methods, like STED and two-photon microscopy, in the hopes that it becomes useful for demonstrations and back-of-the-napkin feasibility calculations. Since many important physical processes are abstracted and performance is unoptimized, it does not aim to be an alternative to professionally developed solutions.
+The eventual goal is to achieve (somewhat) accurate simulation and visualization of fluorescence imaging for several methods, like STED [[1]](#1) [[2]](#2) and two-photon microscopy, in the hopes that it becomes useful for demonstrations and back-of-the-napkin feasibility calculations. Since many important physical processes are abstracted and performance is unoptimized, it does not aim to be an alternative to professionally developed solutions.
 
 ### Function
 
@@ -17,7 +17,7 @@ When you specify the desired type and density of fluorophores, the code loads th
 
 <figure>
   <img
-  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_phore_map.png?raw=true"
+  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_phore_map_N=4500.png?raw=true"
   alt="Generated fluorophores"
   width="500">
   <figcaption></figcaption>
@@ -26,20 +26,34 @@ When you specify the desired type and density of fluorophores, the code loads th
 
 From that, the code estimates the number of emission photons collected by the objective (arriving at the filter) from each fluorophore. Their wavelengths are then determined *post facto* by rejection sampling from the emission spectrum (this is by far the most computationally intensive part of the simulation). Another rejection sampler decides if the photon makes it through the filter to the detector.
 
-<figure>
-  <img
-  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_photon_map.png?raw=true"
-  alt="Photon detection numbers"
-  width="500">
-  <figcaption></figcaption>
-</figure>
+If a depletion beam is specified (for STED microscopy), first the appropriate beam and saturation intensities are calculated. The mean number of absorbed photons is then recomputed as the expected number to undergo *spontaneous* decay, based on equations from [[3]](#3). The rest of the process remains unchanged. Handling of STED is still provisional- for example, cross-sections for stimulated emission and vibrational relaxation rates need to be implemented on a per-species basis.
 
-An "image" of the single observed point is then generated as a histogram of pixel intensity values.
+The below image shows the number of detected photons emitted by each of the 4500 fluorescing molecules with absorption and emission spectra corresponding to Alexa Fluor 488 (but some placeholder values) simultaneously illuminated by a 0.1 mW excitation beam (left) with a 1-micron waist and a 100 mW "donut-shaped" depletion beam (right).
 
-<figure>
-  <img
-  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_pixel_map.png?raw=true"
-  alt="Pixel map"
-  width="500">
-  <figcaption></figcaption>
-</figure>
+<p align="middle">
+  <img src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_photon_map_N=4500.png?raw=true" width="350" />
+  <img src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_photon_map_N=4500_PSTED=1000Pex.png?raw=true" width="350" />
+</p>
+
+Finally, an "image" of the single observed point is generated as a histogram of pixel intensity values. Shown here without (left) and with STED illumination (right).
+
+<p align="align">
+  <img src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_pixel_map_N=4500.png?raw=true" width="350" />
+  <img src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_pixel_map_N=4500_PSTED=1000Pex.png?raw=true" width="350" />
+</p>
+
+### References
+<a id="1">[1]</a> 
+Hell, S. W. and Wichmann, J. (1994). 
+Breaking the diffraction resolution limit by stimulated emission: stimulated-emission-depletion fluorescence microscopy.
+Optics Letters, 19(11), 780-782.
+
+<a id="2">[2]</a> 
+Klar, T. A. and Hell, S. W. (1999). 
+Subdiffraction resolution in far-field fluorescence microscopy.
+Optics Letters, 24(14), 954-956.
+
+<a id="3">[3]</a> 
+Leutenegger, M., Eggeling, C. and Hell, S. W. (2010). 
+Analytical description of STED microscopy performance.
+Optics Express, 18(25), 26417-26429.
