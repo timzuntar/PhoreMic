@@ -119,7 +119,7 @@ def STED_saturation_intensity(lifetime, STxsection, STwavelength):
         wavelength of STED beam
     """
 
-    ks1 = 1.0/(lifetime*1e-9)
+    ks1 = 1.0/(lifetime)
     return scipy.constants.c*scipy.constants.h*ks1/(STxsection*STwavelength)
 
 def STED_get_all_Isat(phores, STxsection, STwavelength):
@@ -140,7 +140,7 @@ def STED_get_all_Isat(phores, STxsection, STwavelength):
 
     for i,type in enumerate(phoretypes):
         _,_,_,lifetime = read_properties(type)
-        Isats[i] = STED_saturation_intensity(lifetime,STxsection,STwavelength*1e-9)
+        Isats[i] = STED_saturation_intensity(lifetime,STxsection,STwavelength)
     return Isats
 
 def STED_effective_saturation(I, Isat, ks1, vibrelaxrate):
@@ -257,7 +257,7 @@ def get_all_xsections(phores,wavelength):
     phoretypes = numpy.unique(phores[:,0]).astype(int)
     xsections = numpy.empty(len(phoretypes))
     for i,type in enumerate(phoretypes):
-        xsections[i] = get_absorption_xsection(type,wavelength*1e9)
+        xsections[i] = get_absorption_xsection(type,wavelength)
     return xsections
     
 def field_add_illumination_intensities(phores, n, wavelength, w0, I0):
@@ -301,7 +301,7 @@ def field_STED_illumination_intensities(phores, STEDwavelength, P, NA):
     phorenum = numpy.shape(phores)[0]
     STEDintensities = numpy.empty(phorenum,dtype=float)
     for i in range(phorenum):
-        STEDintensities[i] = STED_2D_approx_point_intensity((phores[i][1],phores[i][2],phores[i][3]), STEDwavelength*1e-9, P, NA)
+        STEDintensities[i] = STED_2D_approx_point_intensity((phores[i][1],phores[i][2],phores[i][3]), STEDwavelength, P, NA)
     return STEDintensities
 
 def illumination_fraction(NA, n):
@@ -401,7 +401,7 @@ def STED_all_incident(phores, intensities, STEDintensities, exptime, wavelength,
         xsection = xsections[t]
         Isat = Isats[t]
         _,_,_,lifetime = read_properties(phoretype)
-        ks1 = 1.0/(lifetime*1e-9)
+        ks1 = 1.0/(lifetime)
         for i in range(phorenum):
             if (phores[i,0] == phoretype):
                 _,prob = STED_CW_rates(STEDintensities[i], Isat, exc_rates[i], ks1, vibrelaxrate, intersystem=0, kt1=1.0)
@@ -481,7 +481,7 @@ def get_absorption_xsection(phoretype, wavelength):
         quit()
     with open(pkl[0], 'rb') as f:
         xsection_function = pickle.load(f)
-    return xsection_function(wavelength)
+    return xsection_function(wavelength*1e9)
 
 def get_emission_spectrum(phoretype):
     """
@@ -519,6 +519,7 @@ def read_properties(phoretype):
         fluorophore identifier
     """
     out = numpy.genfromtxt("dye_spectra/properties.dat", usecols=(0,2,3,4,5),comments="#",skip_header=phoretype,max_rows=1)
+    out[4] *= 1e-9  #to account for lifetime being given in nanoseconds
     if (int(out[0]) != phoretype):
         print("File properties.dat either missing lines or containing bad data!")
         quit()

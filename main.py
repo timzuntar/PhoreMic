@@ -20,8 +20,8 @@ wavelength = 490e-9
 Pexc = 1e-5
 I0 = 2*Pexc/(math.pi*(w0**2))
 #STED beam parameters
-STEDwavelength = 592
-PSTED = 100000*Pexc
+STEDwavelength = 592e-9
+PSTED = 1e6*Pexc
 #FLUOROPHORE-SPECIFIC, these are placeholders and will eventually be properly calculated/included in the properties file
 vibrelaxrate = 1.0/1e-12
 intersystem = 0.0
