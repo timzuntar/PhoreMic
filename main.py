@@ -22,11 +22,6 @@ I0 = 2*Pexc/(math.pi*(w0**2))
 #STED beam parameters
 STEDwavelength = 592e-9
 PSTED = 1e6*Pexc
-#FLUOROPHORE-SPECIFIC, these are placeholders and will eventually be properly calculated/included in the properties file
-vibrelaxrate = 1.0/1e-12
-intersystem = 0.0
-kt1 = 1.0
-STEDxsection = aux.get_absorption_xsection(phoretype,STEDwavelength)
 
 #other parameters
 rng_seed = 17
@@ -40,8 +35,9 @@ plots.display_2D_fluorophore_field(phores,w0)
 
 #imports the relevant absorption spectra and calculates cross-section at excitation wavelength
 xsections = aux.get_all_xsections(phores,wavelength)
+STEDxsections = aux.get_all_xsections(phores,STEDwavelength)
 #as well as the saturation intensities
-Isats = aux.STED_get_all_Isat(phores,STEDxsection,STEDwavelength)
+Isats = aux.STED_get_all_Isat(phores,STEDxsections,STEDwavelength)
 
 #calculates the mean numbers of absorbed photons per exposure  
 incident_photons = aux.all_incident(phores, exptime, wavelength, xsections, intensities)
@@ -52,7 +48,7 @@ exc_rates = incident_photons/exptime
 #intensities of STED beam
 STED_intensities = aux.field_STED_illumination_intensities(phores, STEDwavelength, PSTED, NA)
 
-STED_incident_photons = aux.STED_all_incident(phores, intensities, STED_intensities, exptime, wavelength, exc_rates, xsections, Isats, vibrelaxrate, intersystem=intersystem, kt1=kt1)
+STED_incident_photons = aux.STED_all_incident(phores, intensities, STED_intensities, exptime, wavelength, exc_rates, xsections, Isats)
 
 print("Max intensity\nno STED: %e STED: %e" % (numpy.amax(intensities),numpy.amax(STED_intensities)))
 

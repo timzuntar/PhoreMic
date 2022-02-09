@@ -122,7 +122,7 @@ def STED_saturation_intensity(lifetime, STxsection, STwavelength):
     ks1 = 1.0/(lifetime)
     return scipy.constants.c*scipy.constants.h*ks1/(STxsection*STwavelength)
 
-def STED_get_all_Isat(phores, STxsection, STwavelength):
+def STED_get_all_Isat(phores, STxsections, STwavelength):
     """
     Calculates saturation intensities for all fluorophore types
     
@@ -130,7 +130,7 @@ def STED_get_all_Isat(phores, STxsection, STwavelength):
     ----------
     phores : 2D array
         types and positions of fluorophores
-    STxsection : float
+    STxsections : 1D array
         cross-section for stimulated emission [square meters]
     STEDwavelength : float
         wavelength of depletion beam [m]
@@ -140,7 +140,7 @@ def STED_get_all_Isat(phores, STxsection, STwavelength):
 
     for i,type in enumerate(phoretypes):
         _,_,_,lifetime = read_properties(type)
-        Isats[i] = STED_saturation_intensity(lifetime,STxsection,STwavelength)
+        Isats[i] = STED_saturation_intensity(lifetime,STxsections[i],STwavelength)
     return Isats
 
 def STED_effective_saturation(I, Isat, ks1, vibrelaxrate):
@@ -364,7 +364,7 @@ def all_incident(phores, exptime, wavelength, xsections, intensities):
                 incident_counts[i] = incident_photons_per_exposure(exptime,wavelength,xsection,intensities[i])
     return incident_counts    
 
-def STED_all_incident(phores, intensities, STEDintensities, exptime, wavelength, exc_rates, xsections, Isats, vibrelaxrate, intersystem=0, kt1=1.0):
+def STED_all_incident(phores, intensities, STEDintensities, exptime, wavelength, exc_rates, xsections, Isats):
     """
     Expected numbers of absorbed photons that undergo spontaneous decay under STED illumination  
 
@@ -386,12 +386,6 @@ def STED_all_incident(phores, intensities, STEDintensities, exptime, wavelength,
         absorption cross sections of fluorophore species at given wavelength [m^2]
     Isats : 1D array
         saturation intensities of fluorophore species [W/m^2]
-    vibrelaxrate : float
-        rate of vibrational relaxation into ground state [1/s]
-    intersystem : float
-        intersystem crossing yield (probability for decay to triplet state)
-    kt1 : float
-        decay rate of triplet state [1/s]
     """
     phorenum = numpy.shape(phores)[0]
     incident_counts = numpy.empty(phorenum,dtype=float)
@@ -401,10 +395,11 @@ def STED_all_incident(phores, intensities, STEDintensities, exptime, wavelength,
         xsection = xsections[t]
         Isat = Isats[t]
         _,_,_,lifetime = read_properties(phoretype)
+        vibrelaxrate,intersystem,kt1 = read_STED_properties(phoretype)
         ks1 = 1.0/(lifetime)
         for i in range(phorenum):
             if (phores[i,0] == phoretype):
-                _,prob = STED_CW_rates(STEDintensities[i], Isat, exc_rates[i], ks1, vibrelaxrate, intersystem=0, kt1=1.0)
+                _,prob = STED_CW_rates(STEDintensities[i], Isat, exc_rates[i], ks1, vibrelaxrate, intersystem=intersystem, kt1=kt1)
                 incident_counts[i] = prob*incident_photons_per_exposure(exptime,wavelength,xsection,intensities[i])
     return incident_counts  
 
@@ -524,6 +519,23 @@ def read_properties(phoretype):
         print("File properties.dat either missing lines or containing bad data!")
         quit()
     return out[1:5]
+
+def read_STED_properties(phoretype):
+    """
+    Reads fluorophore properties relevant for stimulated emission depletion from main file.
+    [vibrational relaxation rate, intersystem crossing yield, triplet state lifetime]
+
+    Parameters
+    ----------
+    phoretype : int
+        fluorophore identifier
+    """
+    out = numpy.genfromtxt("dye_spectra/STED_properties.dat", usecols=(0,1,2,3),comments="#",skip_header=phoretype,max_rows=1)
+    out[3] *= 1e-9  #to account for lifetime being given in nanoseconds
+    if (int(out[0]) != phoretype):
+        print("File STED_properties.dat either missing lines or containing bad data!")
+        quit()
+    return out[1:4]
 
 def naive_rejection_sampler(spectrum,lowbound,highbound):
     """
