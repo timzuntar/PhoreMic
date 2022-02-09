@@ -83,3 +83,29 @@ def display_detected_image(hist):
     plt.show()
 
     return None
+
+def compare_profiles(regular_profile,STED_profile,size):
+    """
+    Compares normalized radial profiles of an illuminated point at each individual molecule
+     
+    Parameters
+    ----------
+    regular_profile : 2D array
+        profile of regular fluorescence microscopy (2 columns)
+    STED_profile : 2D array
+        profile of STED-assisted microscopy (2 columns)
+    """
+    fig = plt.figure()
+    ax = fig.add_subplot()
+
+    ax.scatter(regular_profile[:,0]*1e6,regular_profile[:,1],label="without STED",s=2)
+    ax.scatter(STED_profile[:,0]*1e6,STED_profile[:,1],label="with STED",s=2)
+    fig.legend()
+
+    plt.title("Per-fluorophore radial profiles")
+    plt.xlabel(r"r [$\mu$m]")
+    plt.ylabel(r"$I/I_{max}$")
+    plt.xlim([0.0, size*1e6])
+    plt.ylim([0.0,1.05])
+    plt.show()
+    return None

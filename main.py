@@ -5,7 +5,7 @@ import numpy
 import matplotlib.pyplot as plt
 
 #fluorophore parameters
-density = 5e13
+density = 5e14
 phoretype = 1
 #sample and setup parameters
 n = 1.003
@@ -21,7 +21,7 @@ Pexc = 1e-4
 I0 = 2*Pexc/(math.pi*(w0**2))
 #STED beam parameters
 STEDwavelength = 592
-PSTED = 100*Pexc
+PSTED = 1000*Pexc
 #FLUOROPHORE-SPECIFIC, these are placeholders and will eventually be properly calculated/included in the properties file
 vibrelaxrate = 1.0/1e-12
 STEDxsection = 1e-20
@@ -79,3 +79,8 @@ STEDhist,_,_ = aux.pixel_binning(phores,STED_photon_counts,w0*field_size,pixel_s
 
 plots.display_detected_image(hist)
 plots.display_detected_image(STEDhist)
+
+profile = aux.radial_signal_profile(phores,photon_counts)
+STED_profile = aux.radial_signal_profile(phores,STED_photon_counts)
+
+plots.compare_profiles(profile,STED_profile,field_size*w0)

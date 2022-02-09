@@ -51,7 +51,7 @@ def STED_2D_approx_point_intensity(point_coords, STEDwavelength, P, NA):
 
 def STED_2D_point_intensity(point_coords, STEDwavelength, R, f):
     """
-    Determines the intensity of depletion beam from total incident power (assuming losses are constant) via numerical integration
+    Determines the intensity of depletion beam at chosen point with prediction for a coherent plane wave passing through a 2-pi vortex plate
 
     Parameters
     ----------
@@ -666,3 +666,29 @@ def pixel_binning(phores,photon_counts,field_size,pixel_size):
     hist,xedges,yedges = numpy.histogram2d(phores[:,1],phores[:,2],2*numbins+1,range,density=False,weights=photon_counts)
     
     return hist,xedges,yedges
+
+def radial_signal_profile(phores,photon_counts):
+    """
+    Returns the detected radial profile of the illuminated area
+    
+    Parameters
+    ----------
+    phores : 2D array
+        types and positions of fluorophores
+    photon_counts : 1D array
+        numbers of detected photons per fluorophore 
+    """
+    phorenum = numpy.shape(phores)[0]
+    profile = numpy.empty((phorenum,2),dtype=float)
+    for i in range(phorenum):
+        r = math.sqrt(phores[i][1]**2 + phores[i][2]**2)
+        profile[i][0] = r
+        profile[i][1] = photon_counts[i]
+
+    maxvalue = numpy.amax(profile[:,1])
+    if (maxvalue > 0.0):
+        profile[:,1] /= maxvalue
+    else:
+        return [0,0]
+    profile = profile[profile[:, 0].argsort()]
+    return profile
