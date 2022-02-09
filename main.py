@@ -5,7 +5,7 @@ import numpy
 import matplotlib.pyplot as plt
 
 #fluorophore parameters
-density = 5e13
+density = 5e14
 phoretype = 1
 #sample and setup parameters
 n = 1.003
