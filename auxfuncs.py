@@ -161,26 +161,6 @@ def STED_effective_saturation(I, Isat, ks1, vibrelaxrate):
     xi = I/Isat
     return (xi*vibrelaxrate)/(xi*ks1 + vibrelaxrate)
 
-def STED_cross_section(phoretype, STEDwavelength, n):
-    """
-    Calculates cross section for stimulated emission based on fluorophore properties
-    NOTE: formula needs fixing, spectral lineshape function is likely wrong
-
-    Parameters
-    ----------
-    phoretype : int
-        fluorophore identifier
-    STEDwavelength : float
-        wavelength of depletion beam [m]
-    n : float
-        refractive index of propagation medium
-    """
-    _,_,_,lifetime = read_properties(phoretype)
-    emission_spectrum = get_emission_spectrum(phoretype)
-    shape = emission_spectrum(STEDwavelength)
-    ks1 = 1.0/(lifetime*1e-9)
-    return ks1*((STEDwavelength*1e-9)**2)*shape/(8*math.pi*(n**2))
-
 def STED_CW_rates(I, Isat, kex, ks1, vibrelaxrate, intersystem=0, kt1=1.0):
     """
     Probability for spontaneous decay and its rate for continuous STED illumination 

@@ -5,26 +5,28 @@ import numpy
 import matplotlib.pyplot as plt
 
 #fluorophore parameters
-density = 5e14
+density = 5e13
 phoretype = 1
 #sample and setup parameters
 n = 1.003
 NA = 0.34
-exptime = 0.002
+exptime = 0.02
 detector_qeff = 0.9
 pixel_size = 0.3e-6
 field_size = 1.5
 #excitation beam parameters
 w0 = 1e-6
 wavelength = 490e-9
-Pexc = 1e-4
+Pexc = 1e-5
 I0 = 2*Pexc/(math.pi*(w0**2))
 #STED beam parameters
 STEDwavelength = 592
-PSTED = 1000*Pexc
+PSTED = 100000*Pexc
 #FLUOROPHORE-SPECIFIC, these are placeholders and will eventually be properly calculated/included in the properties file
 vibrelaxrate = 1.0/1e-12
-STEDxsection = 1e-20
+intersystem = 0.0
+kt1 = 1.0
+STEDxsection = aux.get_absorption_xsection(phoretype,STEDwavelength)
 
 #other parameters
 rng_seed = 17
@@ -50,7 +52,7 @@ exc_rates = incident_photons/exptime
 #intensities of STED beam
 STED_intensities = aux.field_STED_illumination_intensities(phores, STEDwavelength, PSTED, NA)
 
-STED_incident_photons = aux.STED_all_incident(phores, intensities, STED_intensities, exptime, wavelength, exc_rates, xsections, Isats, vibrelaxrate, intersystem=0, kt1=1.0)
+STED_incident_photons = aux.STED_all_incident(phores, intensities, STED_intensities, exptime, wavelength, exc_rates, xsections, Isats, vibrelaxrate, intersystem=intersystem, kt1=kt1)
 
 print("Max intensity\nno STED: %e STED: %e" % (numpy.amax(intensities),numpy.amax(STED_intensities)))
 
