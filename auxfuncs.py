@@ -46,8 +46,13 @@ def STED_2D_approx_point_intensity(point_coords, STEDwavelength, P, NA):
     NA : float
         numerical aperture of depletion beam
     """
-    square = (math.sin(math.pi*NA*math.sqrt(point_coords[0]**2 + point_coords[1]**2)/STEDwavelength))**2
-    return 4*P*(NA/STEDwavelength)**2 * square
+    maxradius = STEDwavelength/NA
+    radius = math.sqrt(point_coords[0]**2 + point_coords[1]**2)
+    if (radius < maxradius):
+        square = (math.sin(math.pi*NA*radius/STEDwavelength))**2
+        return 4*P*(NA/STEDwavelength)**2 * square
+    else:
+        return 0.0
 
 def STED_2D_point_intensity(point_coords, STEDwavelength, R, f):
     """
@@ -670,7 +675,7 @@ def pixel_binning(phores,photon_counts,field_size,pixel_size):
 def radial_signal_profile(phores,photon_counts):
     """
     Returns the detected radial profile of the illuminated area
-    
+
     Parameters
     ----------
     phores : 2D array
