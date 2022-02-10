@@ -1,3 +1,4 @@
+import auxfuncs as aux
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy
@@ -22,7 +23,7 @@ def display_2D_fluorophore_field(phores, w0):
 
     ax.add_patch(beamwaist)
     for type in phoretypes:
-        typelabel = "fluorophore type " + str(type)
+        typelabel,_ = aux.read_properties(type)
         ax.scatter(phores[phores[:, 0] == type,1]*1e6,phores[phores[:,0] == type,2]*1e6,label=typelabel,s=1)
     
     ax.axis('equal')
@@ -100,7 +101,7 @@ def compare_profiles(regular_profile,STED_profile,size):
 
     ax.scatter(regular_profile[:,0]*1e6,regular_profile[:,1],label="without STED",s=2)
     ax.scatter(STED_profile[:,0]*1e6,STED_profile[:,1],label="with STED",s=2)
-    fig.legend()
+    fig.legend(loc=1)
 
     plt.title("Per-fluorophore radial profiles")
     plt.xlabel(r"r [$\mu$m]")

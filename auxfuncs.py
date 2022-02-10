@@ -139,7 +139,8 @@ def STED_get_all_Isat(phores, STxsections, STwavelength):
     Isats = numpy.empty(len(phoretypes))
 
     for i,type in enumerate(phoretypes):
-        _,_,_,lifetime = read_properties(type)
+        _,props = read_properties(type)
+        lifetime = props[3]
         Isats[i] = STED_saturation_intensity(lifetime,STxsections[i],STwavelength)
     return Isats
 
@@ -394,7 +395,8 @@ def STED_all_incident(phores, intensities, STEDintensities, exptime, wavelength,
     for t,phoretype in enumerate(phoretypes):
         xsection = xsections[t]
         Isat = Isats[t]
-        _,_,_,lifetime = read_properties(phoretype)
+        _,props = read_properties(phoretype)
+        lifetime = props[3]
         vibrelaxrate,intersystem,kt1 = read_STED_properties(phoretype)
         ks1 = 1.0/(lifetime)
         for i in range(phorenum):
@@ -506,19 +508,20 @@ def get_filter_spectrum(filter_name):
 def read_properties(phoretype):
     """
     Reads fluorophore properties from main file.
-    [absorption cross section, corresponding wavelength, quantum yield, fluorescence lifetime]
+    [name, absorption cross section, corresponding wavelength, quantum yield, fluorescence lifetime]
 
     Parameters
     ----------
     phoretype : int
         fluorophore identifier
     """
-    out = numpy.genfromtxt("dye_spectra/properties.dat", usecols=(0,2,3,4,5),comments="#",skip_header=phoretype,max_rows=1)
-    out[4] *= 1e-9  #to account for lifetime being given in nanoseconds
+    out = numpy.genfromtxt("dye_spectra/properties.dat", usecols=(0,3,4,5,6),comments="#",skip_header=phoretype,max_rows=1)
     if (int(out[0]) != phoretype):
         print("File properties.dat either missing lines or containing bad data!")
         quit()
-    return out[1:5]
+    name = str(numpy.genfromtxt("dye_spectra/properties.dat", dtype="U",usecols=(1),comments="#",skip_header=phoretype,max_rows=1))
+    out[4] *= 1e-9  #to account for lifetime being given in nanoseconds
+    return name,out[1:5]
 
 def read_STED_properties(phoretype):
     """
@@ -637,7 +640,8 @@ def calculate_single_image(phores, incident_photons, filter_spectrum, NA, n, det
 
     for t,phoretype in enumerate(phoretypes):
         emission_spectrum = get_emission_spectrum(phoretype)
-        _,_,quantum_yield,_ = read_properties(phoretype)
+        _,props = read_properties(phoretype)
+        quantum_yield = props[2]
         for i in range(phorenum):
             if (phores[i,0] == phoretype):
                 photon_counts[i] = collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_photons[i], quantum_yield, detector_qeff, illumination, rng)
