@@ -31,7 +31,7 @@ phores = aux.generate_fluorophore_field(w0, density, phoretype, seed=42, latmult
 intensities = aux.field_add_illumination_intensities(phores, n, wavelength, w0, I0)
 
 #displays fluorophore distribution
-plots.display_2D_fluorophore_field(phores,w0)
+plots.display_2D_fluorophore_field(phores,w0,field_size,Pexc,wavelength)
 
 #imports the relevant absorption spectra and calculates cross-section at excitation wavelength
 xsections = aux.get_all_xsections(phores,wavelength)
@@ -67,8 +67,7 @@ filter_spectrum = aux.get_filter_spectrum("test_filter")
 photon_counts = aux.calculate_single_image(phores, incident_photons, filter_spectrum, NA, n, detector_qeff, rng_seed)
 STED_photon_counts = aux.calculate_single_image(phores, STED_incident_photons, filter_spectrum, NA, n, detector_qeff, rng_seed)
 
-plots.display_detected_photon_counts(phores,w0,photon_counts)
-plots.display_detected_photon_counts(phores,w0,STED_photon_counts)
+plots.display_photon_counts_side_by_side(phores,w0,photon_counts,STEDwavelength/(NA*2.0),STED_photon_counts,field_size,alt_type="STED")
 
 #simulates a finite detector resolution
 #placeholder; right now all types of fluorophores are output on the same histogram, potentially reducing performance 
