@@ -67,15 +67,14 @@ filter_spectrum = aux.get_filter_spectrum("test_filter")
 photon_counts = aux.calculate_single_image(phores, incident_photons, filter_spectrum, NA, n, detector_qeff, rng_seed)
 STED_photon_counts = aux.calculate_single_image(phores, STED_incident_photons, filter_spectrum, NA, n, detector_qeff, rng_seed)
 
-plots.display_photon_counts_side_by_side(phores,w0,photon_counts,STEDwavelength/(NA*2.0),STED_photon_counts,field_size,alt_type="STED")
+plots.display_photon_counts_side_by_side(phores,Pexc,wavelength,PSTED,STEDwavelength,w0,photon_counts,STEDwavelength/(NA*2.0),STED_photon_counts,field_size,alt_type="STED")
 
 #simulates a finite detector resolution
 #placeholder; right now all types of fluorophores are output on the same histogram, potentially reducing performance 
 hist,_,_ = aux.pixel_binning(phores,photon_counts,w0*field_size,pixel_size)
 STEDhist,_,_ = aux.pixel_binning(phores,STED_photon_counts,w0*field_size,pixel_size)
 
-plots.display_detected_image(hist)
-plots.display_detected_image(STEDhist)
+plots.display_detected_images(pixel_size,hist,STEDhist,alt_type="STED")
 
 profile = aux.radial_signal_profile(phores,photon_counts)
 STED_profile = aux.radial_signal_profile(phores,STED_photon_counts)

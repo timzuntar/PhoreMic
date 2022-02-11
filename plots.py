@@ -72,7 +72,7 @@ def display_detected_photon_counts(phores,w0,photon_counts):
 
     return None
 
-def display_photon_counts_side_by_side(phores,w0,photon_counts,alt_w0,alt_photon_counts,latmultiplier,alt_type=None):
+def display_photon_counts_side_by_side(phores,Pexc,wavelength,PSTED,STEDwavelength,w0,photon_counts,alt_w0,alt_photon_counts,latmultiplier,alt_type=None):
     """
     Displays detected photon numbers from each fluorophore for two different imaging methods or runs 
 
@@ -83,7 +83,7 @@ def display_photon_counts_side_by_side(phores,w0,photon_counts,alt_w0,alt_photon
     w0 : float
         excitation beam waist diameter [microns]
     photon_counts : 1D array
-        numbers of emitted photons collected by detector
+        numbers of emitted photons collected by detector for first method
     alt_w0 : float
         beam waist diameter for second method [microns]
     alt_photon_counts : 1D array
@@ -125,14 +125,14 @@ def display_photon_counts_side_by_side(phores,w0,photon_counts,alt_w0,alt_photon
     axes[0].set_ylabel(r"Y [$\mu$m]")
     axes[1].set_xlabel(r"X [$\mu$m]")
     axes[1].set_ylabel(r"Y [$\mu$m]")
-    plt.suptitle("Number of detected photons per fluorophore")
+    plt.suptitle("Number of detected photons per fluorophore\n$P_{exc} = %.2f ~\mu W, \lambda_{exc} = %.0f ~nm, P_{STED} = %.2f ~W, \lambda_{STED} = %.0f ~nm$" % (Pexc*1e6,wavelength*1e9,PSTED,STEDwavelength*1e9))
     plt.colorbar(points,shrink=0.7)
     plt.show()
     return None
 
 def display_detected_image(hist):
     """
-    Displays the detected "image"
+    Displays the detected "image" histograms
 
     Parameters
     ----------
@@ -150,6 +150,52 @@ def display_detected_image(hist):
     plt.show()
 
     return None
+
+def display_detected_images(pixel_size,hist1,hist2,alt_type=None):
+    """
+    Displays the detected "image" histograms of two different imaging methods or runs 
+
+    Parameters
+    ----------
+    pixel_size : float
+        length corresponding to microscope resolution [m]
+    hist1 : 2D array
+        histogram of photon numbers for first method
+    hist2: 2D array
+        histogram of photon numbers for first method
+    alt_type : str
+        identifier of second method
+    """
+    numbins = numpy.shape(hist1)
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 6),constrained_layout=True)
+    axes[0].set_title("Gaussian beam only")
+    if (alt_type == None):
+        axes[1].set_title("Gaussian beam only")
+    elif (alt_type == "STED"):
+        axes[1].set_title("STED illumination")
+    
+    min1 = numpy.min(hist1)
+    min2 = numpy.min(hist2)
+    max1 = numpy.max(hist1)
+    max2 = numpy.max(hist2)
+
+    points = axes[0].imshow(hist1,vmin=min(min1,min2), vmax=max(max1,max2))
+    axes[1].imshow(hist2,vmin=min(min1,min2), vmax=max(max1,max2))
+
+    axes[0].axis("scaled")
+    axes[1].axis("scaled")
+
+    axes[0].set_xlabel(r"X [px]")
+    axes[0].set_ylabel(r"Y [px]")
+    axes[1].set_xlabel(r"X [px]")
+    axes[1].set_ylabel(r"Y [px]")
+
+    plt.suptitle("Number of detected photons per pixel\n pixel size = $%.2f ~\mu m$" % (pixel_size*1e6))
+    plt.colorbar(points,shrink=0.7)
+    plt.show()
+
+    return None
+
 
 def compare_profiles(regular_profile,STED_profile,size):
     """

@@ -1,10 +1,5 @@
 ## A simple fluorescence microscopy visualization tool
 
-[Function](#function)
-[Current progress](#current-progress)
-[Results](#results)
-[References](#references)
-
 ### Purpose
 
 The eventual goal is to achieve (somewhat) accurate simulation and visualization of fluorescence imaging for several methods, like STED [[1]](#1) [[2]](#2) and two-photon microscopy, in the hopes that it becomes useful for demonstrations and back-of-the-napkin feasibility calculations. Since many important physical processes are abstracted and performance is unoptimized, it does not aim to be an alternative to professionally developed solutions.
@@ -21,10 +16,10 @@ When you specify the desired type and density of fluorophores, the code loads th
 
 <figure>
   <img
-  align="center"
+  align="middle"
   src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_phore_map_N=4500.png?raw=true"
   alt="Generated fluorophores"
-  width="500">
+  width="600">
   <figcaption></figcaption>
 </figure>
 
@@ -37,23 +32,32 @@ If a depletion beam is specified (for STED microscopy), first the appropriate be
 
 The below image shows the number of detected photons emitted by each of the 4500 fluorescing molecules with absorption and emission spectra corresponding to Alexa Fluor 488 (but some placeholder values) simultaneously illuminated by a 490 nm 0.1 mW excitation beam (left) with a 1-micron waist and a 592 nm 100 mW "donut-shaped" depletion beam (right).
 
-<p align="middle">
-  <img src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_photon_map_N=4500.png?raw=true" width="350" />
-  <img src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_photon_map_N=4500_PSTED=1000Pex.png?raw=true" width="350" />
-</p>
+<figure>
+  <img
+  align="middle"
+  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_photon_map_N=4500_PSTED=1000Pex.png?raw=true"
+  alt="Photon maps"
+  width="700">
+  <figcaption></figcaption>
+</figure>
 
 Finally, an "image" of the single observed point is generated as a histogram of pixel intensity values. Shown here without (left) and with STED illumination (right).
 
-<p align="middle">
-  <img src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_pixel_map_N=4500.png?raw=true" width="350" />
-  <img src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_pixel_map_N=4500_PSTED=1000Pex.png?raw=true" width="350" />
-</p>
+<figure>
+  <img
+  align="middle"
+  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_pixel_map_N=4500_PSTED=1000Pex.png?raw=true"
+  alt="Pixel maps at detector"
+  width="700">
+  <figcaption></figcaption>
+</figure>
+
 
 A comparison between radial intensity profiles of both methods ("intensity" in this case being the number of detected photons from each fluorophore normalized to the maximum) reveals a strong narrowing of the profile when STED illumination is used, as one would expect.
 
 <figure>
   <img
-  align="center"
+  align="middle"
   src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_radial_comparison_N=4500_PSTED=1000Pex.png?raw=true"
   alt="Comparison of radial profiles"
   width="500">
