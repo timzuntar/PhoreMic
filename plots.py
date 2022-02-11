@@ -33,7 +33,7 @@ def display_2D_fluorophore_field(phores, w0, latmultiplier,Pexc,wavelength):
         ax.scatter(phores[phores[:, 0] == type,1]*1e6,phores[phores[:,0] == type,2]*1e6,label=typelabel,s=3)
     
     ax.axis("scaled")
-    plt.legend(bbox_to_anchor=(1.1,1), borderaxespad=0)
+    plt.legend(bbox_to_anchor=(0.2,0.8), borderaxespad=0)
 
     plt.title("Generated fluorophore map")
     plt.xlabel(r"X [$\mu$m]")
@@ -41,6 +41,69 @@ def display_2D_fluorophore_field(phores, w0, latmultiplier,Pexc,wavelength):
     plt.ylabel(r"Y [$\mu$m]")
     plt.ylim([-w0*latmultiplier*1e6*1.1,w0*latmultiplier*1e6*1.1])
     plt.show()
+    return None
+
+def display_spectral_overview(phoretype,absorption_spectrum,emission_spectrum,filter_spectrum,exc_wavelength,alt_wavelength=None,alt_type=None):
+    """
+    Displays the various relevant spectra to aid in filter/illumination choice
+
+    Parameters
+    ----------
+    phoretype : int
+        fluorophore identifier
+    absorption_spectrum : obj
+        fluorophore absorption spectrum
+    emission_spectrum : obj
+        fluorophore emission spectrum
+    filter_spectrum : obj
+    exc_wavelength : float
+        wavelength of excitation beam [m]
+    alt_wavelength : float
+        wavelength of second beam, if such is present [m]
+    alt_type : str
+        identifier of second method
+    """
+    phorename,specs = aux.read_properties(phoretype)
+
+    lowbounds = [absorption_spectrum.x[0],emission_spectrum.x[0],filter_spectrum.x[0]]
+    highbounds = [absorption_spectrum.x[-1],emission_spectrum.x[-1],filter_spectrum.x[-1]]
+    min_wavelength = min(lowbounds)
+    max_wavelength = max(highbounds)
+
+    fig = plt.figure(figsize=(8, 4), constrained_layout=True)
+    ax = fig.add_subplot()
+
+    absorption_x = numpy.linspace(absorption_spectrum.x[0], absorption_spectrum.x[-1], num=int((absorption_spectrum.x[-1]-absorption_spectrum.x[0])*5+1), endpoint=True)
+    emission_x = numpy.linspace(emission_spectrum.x[0], emission_spectrum.x[-1], num=int((emission_spectrum.x[-1]-emission_spectrum.x[0])*5+1), endpoint=True)
+    filter_x = numpy.linspace(filter_spectrum.x[0], filter_spectrum.x[-1], num=int((filter_spectrum.x[-1]-filter_spectrum.x[0])*5+1), endpoint=True)
+
+    absorption_vec = numpy.vectorize(absorption_spectrum)
+    emission_vec = numpy.vectorize(emission_spectrum)
+    filter_vec = numpy.vectorize(filter_spectrum)
+
+    absorption_y = absorption_vec(absorption_x)
+    absorption_y /= numpy.max(absorption_y)
+    emission_y = emission_vec(emission_x)
+    filter_y = filter_vec(filter_x)
+
+    plt.plot(absorption_x,absorption_y,"-b",label="absorption")
+    plt.plot(emission_x,emission_y,"-g",label="emission")
+    plt.plot(filter_x,filter_y,"-k",label="filter spectrum")
+
+    exc_label = "excitation beam, $\lambda = %.0f$ nm" % (exc_wavelength*1e9)
+    plt.axvline(x=exc_wavelength*1e9,color="r",label=exc_label,linestyle="--")
+    if (alt_type == "STED"):
+        alt_label = "depletion beam, $\lambda = %.0f$ nm" % (alt_wavelength*1e9)
+        plt.axvline(x=alt_wavelength*1e9,color="k",label=alt_label,linestyle="--")
+
+    plt.legend(loc=2)
+    plt.title("Overview of spectra for " + phorename + " and test filter")
+    plt.xlabel(r"$\lambda$ [nm]")
+    plt.xlim([min_wavelength,max_wavelength])
+    plt.ylabel(r"Normalized profiles")
+    plt.ylim([0.0,1.05])
+    plt.show()
+
     return None
 
 def display_detected_photon_counts(phores,w0,photon_counts):

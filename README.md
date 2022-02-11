@@ -30,6 +30,17 @@ If a depletion beam is specified (for STED microscopy), first the appropriate be
 
 ###Results
 
+An overview of the spectra and beam wavelengths used in this test case should help with figuring out what's going on. Note that the y-axis label is a slight misnomer; the filter spectrum is not normalized, since it cosists of transmittance values.
+
+<figure>
+  <img
+  align="middle"
+  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/test_spectra.png?raw=true"
+  alt="Spectral overview"
+  width="600">
+  <figcaption></figcaption>
+</figure>
+
 The below image shows the number of detected photons emitted by each of the 4500 fluorescing molecules with absorption and emission spectra corresponding to Alexa Fluor 488 (but some placeholder values) simultaneously illuminated by a 490 nm 0.1 mW excitation beam (left) with a 1-micron waist and a 592 nm 100 mW "donut-shaped" depletion beam (right).
 
 <figure>

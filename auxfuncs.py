@@ -480,6 +480,26 @@ def get_absorption_xsection(phoretype, wavelength):
         xsection_function = pickle.load(f)
     return xsection_function(wavelength*1e9)
 
+def get_absorption_spectrum(phoretype):
+    """
+    Loads absorption spectrum for chosen fluorophore type
+
+    Parameters
+    ----------
+    phoretype : int
+        fluorophore identifier
+    """
+    identifier = str(phoretype).zfill(3)
+    filepath = "dye_spectra/" + identifier + "_*_absorption.pkl"
+    pkl = glob.glob(filepath)
+    if (len(pkl) != 1):
+        print("Multiple emission files are sharing same identifier. Stopping.")
+        print(pkl)
+        quit()
+    with open(pkl[0], 'rb') as f:
+        absorption_function = pickle.load(f)
+    return absorption_function
+
 def get_emission_spectrum(phoretype):
     """
     Loads emission spectrum for chosen fluorophore type
