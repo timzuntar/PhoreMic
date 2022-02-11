@@ -17,7 +17,7 @@ When you specify the desired type and density of fluorophores, the code loads th
 <figure>
   <img
   align="middle"
-  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_phore_map_N=4500.png?raw=true"
+  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/ex_phore_map_N=4500.png?raw=true"
   alt="Generated fluorophores"
   width="600">
   <figcaption></figcaption>
@@ -35,7 +35,7 @@ The below image shows the number of detected photons emitted by each of the 4500
 <figure>
   <img
   align="middle"
-  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_photon_map_N=4500_PSTED=1000Pex.png?raw=true"
+  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/ex_photon_map_N=4500_PSTED=1000Pex.png?raw=true"
   alt="Photon maps"
   width="700">
   <figcaption></figcaption>
@@ -46,7 +46,7 @@ Finally, an "image" of the single observed point is generated as a histogram of 
 <figure>
   <img
   align="middle"
-  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_pixel_map_N=4500_PSTED=1000Pex.png?raw=true"
+  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/ex_pixel_map_N=4500_PSTED=1000Pex.png?raw=true"
   alt="Pixel maps at detector"
   width="700">
   <figcaption></figcaption>
@@ -58,7 +58,7 @@ A comparison between radial intensity profiles of both methods ("intensity" in t
 <figure>
   <img
   align="middle"
-  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/example_radial_comparison_N=4500_PSTED=1000Pex.png?raw=true"
+  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/ex_radial_comparison_N=4500_PSTED=1000Pex.png?raw=true"
   alt="Comparison of radial profiles"
   width="500">
   <figcaption></figcaption>
