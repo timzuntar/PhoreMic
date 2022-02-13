@@ -50,11 +50,11 @@ def STED_2D_approx_point_intensity(point_coords, STEDwavelength, P, NA):
     radius = math.sqrt(point_coords[0]**2 + point_coords[1]**2)
     if (radius < maxradius):
         square = (math.sin(math.pi*NA*radius/STEDwavelength))**2
-        return 4*P*(NA/STEDwavelength)**2 * square
+        return (2*P/math.pi)*((NA/STEDwavelength)**2) * square
     else:
         return 0.0
 
-def STED_2D_point_intensity(point_coords, STEDwavelength, R, f):
+def STED_2D_point_intensity(point_coords, STEDwavelength, NA_eff):
     """
     Determines the intensity of depletion beam at chosen point with prediction for a coherent plane wave passing through a 2-pi vortex plate
 
@@ -64,17 +64,16 @@ def STED_2D_point_intensity(point_coords, STEDwavelength, R, f):
         refractive index of propagation medium
     STEDwavelength : float
         wavelength of depletion beam [m]
-    R : float
-        radius of lens or filter aperture [m]
-    f : float
-        lens focal length [m]
+    NA_eff : float
+        effective numerical aperture of depletion beam
     """
     k = 2*math.pi/STEDwavelength
-    x = k*R*math.sqrt(point_coords[0]**2+point_coords[1]**2)/f
-    C = (0.5*math.pi*k*R*R/f)**2
+    x = k*NA_eff*math.sqrt(point_coords[0]**2+point_coords[1]**2)
+
+    C = (0.5*math.pi*k*NA_eff)**2
     return (C/(x**2))*(scipy.special.jv(1,x)*scipy.special.struve(0,x)-scipy.special.jv(0,x)*scipy.special.struve(1,x))**2
 
-def STED_2D_intensity_normalization(n, STEDwavelength, P, R, f, lossfactor=0.0, integrationwidth=5):
+def STED_2D_intensity_normalization(n, STEDwavelength, P, NA_eff, lossfactor=0.0, integrationwidth=10):
     """
     Determines the intensity of depletion beam from total incident power (assuming losses are constant) via numerical integration
 
@@ -86,24 +85,23 @@ def STED_2D_intensity_normalization(n, STEDwavelength, P, R, f, lossfactor=0.0, 
         wavelength of depletion beam [m]
     P : float
         total beam power [W]
-    R : float
-        radius of lens or filter aperture [m]
-    f : float
-        lens focal length [m]
+    NA_eff : float
+        effective numerical aperture of depletion beam
     lossfactor : float
         relative amount of beam power not incident on the sample
     integrationwidth : float
         maximum integration radius in multiples of peak intensity radius
     """
-    peakradius = f*2.45*STEDwavelength/(2*math.pi*R)
-    samples = 2001
-    rlist = numpy.linspace(0.0, peakradius*integrationwidth, num=samples, endpoint=True)
+    peakradius = 2.45*STEDwavelength/(2*math.pi*NA_eff)
+    samples = 5001
+    rlist = numpy.linspace(1e-9, peakradius*integrationwidth, num=samples, endpoint=True)
     ilist = numpy.empty(samples)
 
     for i in range(samples):
-        ilist[i] = STED_2D_point_intensity((rlist[i],0.0,0.0),STEDwavelength,R,f)
-    integral = scipy.integrate.simpson(ilist,rlist)
-    return P/integral
+        ilist[i] = STED_2D_point_intensity([rlist[i],0.0,0.0],STEDwavelength,NA_eff)*rlist[i]*2*math.pi
+
+    integral = math.fabs(scipy.integrate.simpson(rlist,ilist))
+    return P*(1.0-lossfactor)/integral
 
 def STED_saturation_intensity(lifetime, STxsection, STwavelength):
     """

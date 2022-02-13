@@ -75,6 +75,9 @@ A comparison between radial intensity profiles of both methods ("intensity" in t
   <figcaption></figcaption>
 </figure>
 
+### Note on beam profiles
+The excitation light is currently assumed to be an ideal Gaussian beam. The depletion beam is either assumed to have an idealized sine-squared radial profile or a somewhat more involved approximation of the shape a coherent plane wave takes on when passing through a vortex phase plate. The latter is based on the derivation from [[4]](#4), but is currently WIP. It uses an effective numerical aperture value that can differ from the actual value by a non-insignificant amount, and otherwise overestimates the intensity by up to a factor of 2 in parts of the beam in comparison with the rough approximation.
+
 ### References
 <a id="1">[1]</a> 
 Hell, S. W. and Wichmann, J. (1994). 
@@ -90,3 +93,8 @@ Optics Letters, 24(14), 954-956.
 Leutenegger, M., Eggeling, C. and Hell, S. W. (2010). 
 Analytical description of STED microscopy performance.
 Optics Express, 18(25), 26417-26429.
+
+<a id="4">[4]</a> 
+Neupane, B., Chen, F., Sun, W., Chiu, D.T. and Wang, G. (2013)
+Tuning donut profile for spatial resolution in stimulated emission depletion microscopy.
+Rev Sci Instrum. 84(4), 043701
