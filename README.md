@@ -69,7 +69,7 @@ A comparison between radial intensity profiles of both methods ("intensity" in t
 <figure>
   <img
   align="middle"
-  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/ex_radial_comparison_N=4500_PSTED=1000Pex.png?raw=true"
+  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/ex_radial_comparison_N=4500_PSTED=3e6Pex.png?raw=true"
   alt="Comparison of radial profiles"
   width="500">
   <figcaption></figcaption>

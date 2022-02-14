@@ -33,7 +33,7 @@ def display_2D_fluorophore_field(phores, w0, latmultiplier,Pexc,wavelength):
         ax.scatter(phores[phores[:, 0] == type,1]*1e6,phores[phores[:,0] == type,2]*1e6,label=typelabel,s=3)
     
     ax.axis("scaled")
-    plt.legend(bbox_to_anchor=(0.2,0.8), borderaxespad=0)
+    plt.legend(bbox_to_anchor=(1.00,0.9), borderaxespad=0)
 
     plt.title("Generated fluorophore map")
     plt.xlabel(r"X [$\mu$m]")
@@ -260,7 +260,7 @@ def display_detected_images(pixel_size,hist1,hist2,alt_type=None):
     return None
 
 
-def compare_profiles(regular_profile,STED_profile,size):
+def compare_profiles(regular_profile,STED_profile,size,res1=None,res2=None,popt1=None,popt2=None):
     """
     Compares normalized radial profiles of an illuminated point at each individual molecule
      
@@ -270,14 +270,45 @@ def compare_profiles(regular_profile,STED_profile,size):
         profile of regular fluorescence microscopy (2 columns)
     STED_profile : 2D array
         profile of STED-assisted microscopy (2 columns)
+    size : float
+        radius to which the profiles are evaluated
+    res1 : float
+        FWHM of response for ordinary excitation
+    res2 : float
+        FWHM of response with depletion beam active
+    popt1 : tuple
+        best fit parameters of ordinary excitation
+    popt2 : tuple
+        best fit parameters with depletion beam active
     """
     fig = plt.figure()
     ax = fig.add_subplot()
 
-    ax.scatter(regular_profile[:,0]*1e6,regular_profile[:,1],label="without STED",s=2)
-    ax.scatter(STED_profile[:,0]*1e6,STED_profile[:,1],label="with STED",s=2)
-    fig.legend(loc=1)
+    pts = len(regular_profile[:,0])
+    if (res1 is None or popt1 is None):
+        fitlabel1 = "without STED"
+    else:
+        fit1 = numpy.empty(pts)
+        for i in range(pts):
+            fit1[i] = aux.gaussfunc(regular_profile[i,0],popt1[0],popt1[1])
+        fitlabel1 = "without STED\nFWHM = $%.3f ~\mu m$" % (res1*1e6)
+        ax.plot(regular_profile[:,0]*1e6,fit1,color="r")
+        plt.axvline(x=0.5*res1*1e6,color="r",linestyle="--")
 
+    if (res2 is None or popt2 is None):
+        fitlabel2 = "with STED"
+    else:
+        fit2 = numpy.empty(pts)
+        for i in range(pts):
+            fit2[i] = aux.linfunc(STED_profile[i,0],popt2[0],popt2[1])
+        fitlabel2 = "with STED\nFWHM = $%.3f ~\mu m$" % (res2*1e6)
+        ax.plot(STED_profile[:,0]*1e6,fit2,color="k")
+        plt.axvline(x=0.5*res2*1e6,color="k",linestyle="--")
+
+    ax.scatter(regular_profile[:,0]*1e6,regular_profile[:,1],color="r",label=fitlabel1,s=2)
+    ax.scatter(STED_profile[:,0]*1e6,STED_profile[:,1],color="k",label=fitlabel2,s=2)
+
+    plt.legend(bbox_to_anchor=(0.6,0.9), borderaxespad=0)
     plt.title("Per-fluorophore radial profiles")
     plt.xlabel(r"r [$\mu$m]")
     plt.ylabel(r"$I/I_{max}$")

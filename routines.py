@@ -144,6 +144,9 @@ def CW_STED_beam_fluorescence_exposure_comparison(phores,setup_pars,exc_pars,STE
     profile = aux.radial_signal_profile(phores,photon_counts)
     STED_profile = aux.radial_signal_profile(phores,STED_photon_counts)
 
-    plots.compare_profiles(profile,STED_profile,field_size*w0)
+    FWHM,popt = aux.FWHM_calculator_Gaussian(profile,w0)
+    FWHM_STED,popt_STED = aux.FWHM_calculator_lin(STED_profile,w0)
+
+    plots.compare_profiles(profile,STED_profile,field_size*w0,res1=FWHM,res2=FWHM_STED,popt1=popt,popt2=popt_STED)
 
     return photon_counts,STED_photon_counts,hist,STEDhist,profile,STED_profile

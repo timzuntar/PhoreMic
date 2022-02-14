@@ -2,9 +2,12 @@ import math
 import glob
 import pickle
 import numpy
-import scipy
 import scipy.stats
+import scipy.special
+import scipy.constants
+import scipy.integrate
 import scipy.interpolate
+import scipy.optimize
 import matplotlib.pyplot as plt
 
 
@@ -712,3 +715,43 @@ def radial_signal_profile(phores,photon_counts):
         return [0,0]
     profile = profile[profile[:, 0].argsort()]
     return profile
+
+def gaussfunc(r,A,w):
+    return A*numpy.exp(-2*(r**2)/(w**2))
+
+def linfunc(r,a,b):
+    return a*r+b
+
+def FWHM_calculator_Gaussian(profile,w0):
+    """
+    Calculates FWHM by fitting intensity profile to a Gaussian function
+
+    Parameters
+    ----------
+    profile : 2D array
+        radii and normalized intensities
+    w0 : float
+        beam diameter at waist [m]
+    """
+    popt,_ = scipy.optimize.curve_fit(gaussfunc,profile[:,0],profile[:,1],[1.0,w0])
+
+    FWHM = 2*popt[1]*math.sqrt(math.log(2)/2)
+    return FWHM,popt
+
+def FWHM_calculator_lin(profile,w0):
+    """
+    Naively calculates FWHM by fitting intensity profile to a linear function in case the analytic form isn't known 
+
+    Parameters
+    ----------
+    profile : 2D array
+        radii and normalized intensities
+    w0 : float
+        beam diameter at waist [m]
+    """
+    profile = profile[profile[:, 1] >= 0.4, :]
+    profile = profile[profile[:, 1] <= 0.6, :]
+
+    popt,_ = scipy.optimize.curve_fit(linfunc,profile[:,0],profile[:,1],[-1/w0,1.0])
+    FWHM = 2*(0.5-popt[1])/popt[0]
+    return FWHM,popt
