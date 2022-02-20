@@ -76,7 +76,21 @@ A comparison between radial intensity profiles of both methods ("intensity" in t
 </figure>
 
 ### Note on beam profiles
+
 The excitation light is currently assumed to be an ideal Gaussian beam. The depletion beam is either assumed to have an idealized sine-squared radial profile or a somewhat more involved approximation of the shape a coherent plane wave takes on when passing through a vortex phase plate. The latter is based on the derivation from [[4]](#4), but is currently WIP. It uses an effective numerical aperture value that can differ from the actual value by a non-insignificant amount, and otherwise overestimates the intensity by up to a factor of 2 in parts of the beam in comparison with the rough approximation.
+
+### Determination of probability distribution for sampling
+
+To reduce wasted dice rolls, the probability distribution used to rejection sample wavelengths of emitted photons needs to follow the emission spectrum as closely as possible. The asymmetric Laplace distribution is a good fit for the typical profile shape. The optimal parameters for all defined fluorophores are determined by a minimization process and stored in *Laplace_PDFs.dat* for future use.
+
+<figure>
+  <img
+  align="middle"
+  src="https://github.com/timzuntar/PhoreMic/blob/main/readme_images/test_emission_pdf.png?raw=true"
+  alt="Emission probability distributions"
+  width="400">
+  <figcaption></figcaption>
+</figure>
 
 ### References
 <a id="1">[1]</a> 

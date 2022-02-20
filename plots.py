@@ -2,6 +2,7 @@ import auxfuncs as aux
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy
+import scipy.stats
 
 def display_2D_fluorophore_field(phores, w0, latmultiplier,Pexc,wavelength):
     """
@@ -314,5 +315,33 @@ def compare_profiles(regular_profile,STED_profile,size,res1=None,res2=None,popt1
     plt.ylabel(r"$I/I_{max}$")
     plt.xlim([0.0, size*1e6])
     plt.ylim([0.0,1.05])
+    plt.show()
+    return None
+
+def display_sampling_pdf(phoretype,params):
+    """
+    Compares the emission spectrum with the calculated fit for rejection sampling
+
+    Parameters
+    ----------
+    phoretype : int
+        fluorophore identifier
+    params : 1D array
+        parameters 
+    """
+    phorename,_ = aux.read_properties(phoretype)
+    spectrum = aux.get_emission_spectrum(phoretype)
+    y = params[3]*scipy.stats.laplace_asymmetric.pdf(spectrum.x,loc=params[0],scale=params[1],kappa=params[2])
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    label = phorename + " emission spectrum"
+    ax.plot(spectrum.x,spectrum.y,color="k",label=label)
+    ax.plot(spectrum.x,y,color="r",label="best fit (asym. Laplace distribution)")
+
+    plt.legend(bbox_to_anchor=(0.4,1.00), borderaxespad=0)
+    plt.title("Probability distribution comparison")
+    plt.xlabel(r"$\lambda$ [nm]")
+    plt.ylabel("Emission probability (a.u.)")
+    plt.xlim([spectrum.x[0]-1.0, spectrum.x[-1]+1.0])
     plt.show()
     return None
