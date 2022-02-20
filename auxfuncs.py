@@ -546,7 +546,7 @@ def read_properties(phoretype):
 
 def read_STED_properties(phoretype):
     """
-    Reads fluorophore properties relevant for stimulated emission depletion from main file.
+    Reads fluorophore properties relevant for stimulated emission depletion from file.
     [vibrational relaxation rate, intersystem crossing yield, triplet state lifetime]
 
     Parameters
@@ -561,7 +561,22 @@ def read_STED_properties(phoretype):
         quit()
     return out[1:4]
 
-def naive_rejection_sampler(spectrum,lowbound,highbound):
+def read_pdf_fit(phoretype):
+    """
+    Reads parameters of probability distribution that most efficiently samples emission spectrum from file.
+
+    Parameters
+    ----------
+    phoretype : int
+        fluorophore identifier
+    """
+    out = numpy.genfromtxt("dye_spectra/Laplace_PDFs.dat", usecols=(0,1,2,3,4,5),comments="#",skip_header=phoretype,max_rows=1)
+    if (int(out[0]) != phoretype):
+        print("File Laplace_PDFs.dat either missing lines or containing bad data!")
+        quit()
+    return out[2:6]
+
+def naive_rejection_sampler(spectrum,lowbound,highbound,pdf_parameters):
     """
     Keeps rejection sampling a distribution until it succeeds
 
@@ -573,22 +588,21 @@ def naive_rejection_sampler(spectrum,lowbound,highbound):
         lower bound of spectrum
     highbound : float
         high bound of spectrum
+    pdf_parameters : 1D array
+        parameters of distribution for sampling from emission spectrum
     """
-    #NOTE: The following sampling function is a placeholder for one specific fluorophore type
-    #and will be replaced by an existing implementation.
-    #Envelope function was determined by trial and error.
-    laplace = scipy.stats.laplace_asymmetric(loc=512.0, scale=25,kappa=0.6)
-    M=80.0
+    laplace = scipy.stats.laplace_asymmetric(loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
+    M=pdf_parameters[3]
     while(True):
-        r = scipy.stats.laplace_asymmetric.rvs(loc=512.0, scale=25,kappa=0.6)
+        r = scipy.stats.laplace_asymmetric.rvs(loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
         if (r<lowbound or r>highbound):
             continue
-        envelope = M*scipy.stats.laplace_asymmetric.pdf(r,loc=512.0, scale=25,kappa=0.6)
+        envelope = M*scipy.stats.laplace_asymmetric.pdf(r,loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
         p = numpy.random.uniform(0, envelope)
         if (p < spectrum(r)):
             return r
 
-def collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_photons, quantum_yield, detector_qeff, illumination, rng):
+def collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_photons, quantum_yield, detector_qeff, illumination, pdf_parameters, rng):
     """
     Calculates mean number of photons collected by detector during the exposure time
 
@@ -606,13 +620,15 @@ def collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_
         quantum efficiency of detector
     illumination : float
         probability that an emitted photon is collected by microscope optics
+    pdf_parameters : 1D array
+        parameters of distribution for sampling from emission spectrum
     rng : obj
         random number generator (for checking whether photons get transmitted)
     """
     emitted_photons_at_filter = incident_photons*quantum_yield*illumination
     collected_photons = 0
     for i in range(int(emitted_photons_at_filter)):
-        photon_wavelength = naive_rejection_sampler(emission_spectrum,emission_spectrum.x[0],emission_spectrum.x[-1])
+        photon_wavelength = naive_rejection_sampler(emission_spectrum,emission_spectrum.x[0],emission_spectrum.x[-1],pdf_parameters)
         if (photon_wavelength > filter_spectrum.x[0] and photon_wavelength < filter_spectrum.x[-1]):
             collected_photons += 1
             probability = filter_spectrum(photon_wavelength)
@@ -661,11 +677,12 @@ def calculate_single_image(phores, incident_photons, filter_spectrum, NA, n, det
 
     for t,phoretype in enumerate(phoretypes):
         emission_spectrum = get_emission_spectrum(phoretype)
+        pdf_parameters = read_pdf_fit(phoretype)
         _,props = read_properties(phoretype)
         quantum_yield = props[2]
         for i in range(phorenum):
             if (phores[i,0] == phoretype):
-                photon_counts[i] = collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_photons[i], quantum_yield, detector_qeff, illumination, rng)
+                photon_counts[i] = collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_photons[i], quantum_yield, detector_qeff, illumination, pdf_parameters, rng)
     
     return photon_counts
 
@@ -755,3 +772,67 @@ def FWHM_calculator_lin(profile,w0):
     popt,_ = scipy.optimize.curve_fit(linfunc,profile[:,0],profile[:,1],[-1/w0,1.0])
     FWHM = 2*(0.5-popt[1])/popt[0]
     return FWHM,popt
+
+def pdf_objective_function(params,spectrum,Npts):
+    """
+    Returns the amount of mismatch between the emission spectrum and asymmetric Laplace partial density function for sampling 
+
+    Parameters
+    ----------
+    params : 1D array
+        array of parameter values (loc, scale, kappa, M)
+    spectrum : obj
+       interpolation result
+    Npts : int
+        number of interpolation points per nm
+    """
+    loc = params[0]
+    scale = params[1]
+    kappa = params[2]
+    M = params[3]
+
+    lowbound = spectrum.x[0]
+    highbound = spectrum.x[-1]
+    Ntotal = int(Npts*(highbound-lowbound))
+    laplace = scipy.stats.laplace_asymmetric(loc=loc,scale=scale,kappa=kappa)
+
+    xlocs = numpy.linspace(lowbound,highbound,num=Ntotal,endpoint=True)
+    spectrum_values = numpy.empty((Ntotal))
+    laplace_values = numpy.empty((Ntotal))
+
+    f = 0.0
+    for i in range(Ntotal):
+        spectrum_values[i] = spectrum(xlocs[i])
+        laplace_values[i] = M*laplace.pdf(xlocs[i])
+
+        if (laplace_values[i] > spectrum_values[i]*1.001):
+            f += (laplace_values[i]-spectrum_values[i])**2
+        else:
+            f += 1e3
+    print(f/Ntotal)
+    return f/Ntotal
+
+def optimize_distribution(phoretype,Npts):
+    """
+    Calculates the optimal (least wasted evaluations) distribution function for rejection sampling of emitted photon wavelengths
+
+    Parameters
+    ----------
+    phoretype : int
+        fluorophore identifier
+    Npts : int
+        number of interpolation points per nm
+    """
+    spectrum = get_emission_spectrum(phoretype)
+    maxy = 0.0
+    locguess = 0.0
+    for t in range(len(spectrum.x)):
+        if (spectrum.y[t] > maxy):
+            maxy = spectrum.y[t]
+            locguess = spectrum.x[t]
+
+    guess = [locguess,25.0,0.6,80.0]
+    #bounds = [(spectrum.x[0],spectrum.x[-1]),(0.0,None),(None,None),(0.0,None)]
+    result = scipy.optimize.minimize(pdf_objective_function,guess,args=(spectrum,Npts),tol=1.0,method="Nelder-Mead",options={'disp': True})
+
+    return result.x
