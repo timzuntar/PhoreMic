@@ -1,6 +1,7 @@
 import auxfuncs as aux 
 import plots
 import math
+import re
 import numpy
 import matplotlib.pyplot as plt
 
@@ -150,3 +151,38 @@ def CW_STED_beam_fluorescence_exposure_comparison(phores,setup_pars,exc_pars,STE
     plots.compare_profiles(profile,STED_profile,field_size*w0,res1=FWHM,res2=FWHM_STED,popt1=popt,popt2=popt_STED)
 
     return photon_counts,STED_photon_counts,hist,STEDhist,profile,STED_profile
+
+def define_emission_sampler(phoretype,filename="dye_spectra/Laplace_PDFs.dat",Npts=10,maxiter=100):
+    """
+    Runs the distribution optimization process on a spectrum and writes the results to file
+
+    Parameters
+    ----------
+    phoretype : int
+        fluorophore identifier
+    filename : str
+        name of file containing distribution parameters
+    Npts : int
+        number of interpolation points per nm
+    maxiter : int
+        maximum number of allowed iterations
+    """
+    params = aux.optimize_distribution(phoretype,Npts,maxiter)
+    plots.display_sampling_pdf(phoretype,params)
+    quality = input("Good fit? y/n: ")
+
+    if (quality == 'y'):
+        phorename,_ = aux.read_properties(phoretype)
+        stringmatch = r"\b%s\s%s\b.*" % (str(phoretype).zfill(3),phorename)
+        stringreplace = r"%s\t%s\t%.8f\t%.8f\t%.8f\t%.8f" % (str(phoretype).zfill(3),phorename,params[0],params[1],params[2],params[3])
+        txt = "".join(open(filename).readlines())
+        txt = re.sub(stringmatch, stringreplace, txt)
+        f = open(filename, 'w')
+        f.write(txt)
+        f.close()
+
+        print("Fit accepted. Parameters written to file.")
+        return None
+    else:
+        print("Fit not accepted. Parameters not written to file.")
+        return None

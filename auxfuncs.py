@@ -809,10 +809,10 @@ def pdf_objective_function(params,spectrum,Npts):
             f += (laplace_values[i]-spectrum_values[i])**2
         else:
             f += 1e3
-    print(f/Ntotal)
+    print("| ", end="",flush=True)
     return f/Ntotal
 
-def optimize_distribution(phoretype,Npts):
+def optimize_distribution(phoretype,Npts=10,maxiter=100):
     """
     Calculates the optimal (least wasted evaluations) distribution function for rejection sampling of emitted photon wavelengths
 
@@ -822,6 +822,8 @@ def optimize_distribution(phoretype,Npts):
         fluorophore identifier
     Npts : int
         number of interpolation points per nm
+    maxiter : int
+        maximum number of allowed iterations
     """
     spectrum = get_emission_spectrum(phoretype)
     maxy = 0.0
@@ -833,6 +835,7 @@ def optimize_distribution(phoretype,Npts):
 
     guess = [locguess,25.0,0.6,80.0]
     #bounds = [(spectrum.x[0],spectrum.x[-1]),(0.0,None),(None,None),(0.0,None)]
-    result = scipy.optimize.minimize(pdf_objective_function,guess,args=(spectrum,Npts),tol=1.0,method="Nelder-Mead",options={'disp': True})
+    print("Starting minimization. This may take several minutes.")
+    result = scipy.optimize.minimize(pdf_objective_function,guess,args=(spectrum,Npts),tol=1.0,method="Nelder-Mead",options={"maxiter": maxiter,'disp': True})
 
     return result.x
