@@ -57,6 +57,7 @@ def display_spectral_overview(phoretype,absorption_spectrum,emission_spectrum,fi
     emission_spectrum : obj
         fluorophore emission spectrum
     filter_spectrum : obj
+
     exc_wavelength : float
         wavelength of excitation beam [m]
     alt_wavelength : float
@@ -107,7 +108,7 @@ def display_spectral_overview(phoretype,absorption_spectrum,emission_spectrum,fi
 
     return None
 
-def display_detected_photon_counts(phores,w0,photon_counts):
+def display_detected_photon_counts(phores,Pexc,wavelength,w0,photon_counts,latmultiplier):
     """
     Displays the detected photon numbers from each fluorophore 
 
@@ -115,25 +116,32 @@ def display_detected_photon_counts(phores,w0,photon_counts):
     ----------
     phores : 2D array
         types and positions of fluorophores
+    Pexc : float
+        total excitation beam power [W]
+    wavelength : float
+        illumination wavelength [m]
     w0 : float
         beam waist diameter [microns]
     photon_counts : 1D array
         numbers of emitted photons collected by detector
+    latmultiplier : float
+        dimension of fluorophore field in multiples of beam waist
     """
     beamwaist = plt.Circle((0, 0), w0*1e6, color='r',fill=False)
     
     fig = plt.figure()
     ax = fig.add_subplot()
     ax.add_patch(beamwaist)
-    points = ax.scatter(x=phores[:,1]*1e6,y=phores[:,2]*1e6,c=photon_counts,vmin=numpy.min(photon_counts), vmax=numpy.max(photon_counts),s=1)
-    plt.colorbar(points)
-    ax.axis('equal')
+    points = ax.scatter(x=phores[:,1]*1e6,y=phores[:,2]*1e6,c=photon_counts,vmin=numpy.min(photon_counts), vmax=numpy.max(photon_counts),s=3)
     
-    plt.title("Number of detected photons per fluorophore")
+    ax.axis('scaled')
+    plt.xlim([-w0*latmultiplier*1e6*1.1,w0*latmultiplier*1e6*1.1])
+    plt.ylim([-w0*latmultiplier*1e6*1.1,w0*latmultiplier*1e6*1.1])
     plt.xlabel(r"X [$\mu$m]")
     plt.ylabel(r"Y [$\mu$m]")
+    plt.title("Number of detected photons per fluorophore\n$P_{exc} = %.2f ~\mu W, \lambda_{exc} = %.0f ~nm$" % (Pexc*1e6,wavelength*1e9))
+    plt.colorbar(points,shrink=1.0)
     plt.show()
-
     return None
 
 def display_photon_counts_side_by_side(phores,Pexc,wavelength,PSTED,STEDwavelength,w0,photon_counts,alt_w0,alt_photon_counts,latmultiplier,alt_type=None):
@@ -144,6 +152,14 @@ def display_photon_counts_side_by_side(phores,Pexc,wavelength,PSTED,STEDwaveleng
     ----------
     phores : 2D array
         types and positions of fluorophores
+    Pexc : float
+        total excitation beam power [W]
+    wavelength : float
+        illumination wavelength [m]
+    PSTED : float
+        total power of depletion beam [W]
+    STEDwavelength : float
+        wavelength of depletion beam [m]
     w0 : float
         excitation beam waist diameter [microns]
     photon_counts : 1D array
@@ -152,6 +168,8 @@ def display_photon_counts_side_by_side(phores,Pexc,wavelength,PSTED,STEDwaveleng
         beam waist diameter for second method [microns]
     alt_photon_counts : 1D array
         numbers of emitted photons collected by detector for second method
+    latmultiplier : float
+        dimension of fluorophore field in multiples of beam waist
     alt_type : str
         identifier of second method
     """
@@ -194,21 +212,27 @@ def display_photon_counts_side_by_side(phores,Pexc,wavelength,PSTED,STEDwaveleng
     plt.show()
     return None
 
-def display_detected_image(hist):
+def display_detected_image(pixel_size,hist):
     """
     Displays the detected "image" histograms
 
     Parameters
     ----------
+    pixel_size : float
+        length corresponding to microscope resolution [m]
     hist : 2D array
         histogram of photon numbers
     """
     fig = plt.figure()
     ax = fig.add_subplot()
-    plt.imshow(hist)
-    plt.title("Number of detected photons per pixel")
-    ax.set_aspect('equal')
-    plt.colorbar()
+
+    min = numpy.min(hist)
+    max = numpy.max(hist)
+
+    points = ax.imshow(hist,vmin=min, vmax=max)
+    plt.title("Number of detected photons per pixel\n pixel size = $%.2f ~\mu m$" % (pixel_size*1e6))
+    ax.axis("scaled")
+    plt.colorbar(points,shrink=1.0)
     plt.xlabel("X [px]")
     plt.ylabel("Y [px]")
     plt.show()
@@ -230,7 +254,6 @@ def display_detected_images(pixel_size,hist1,hist2,alt_type=None):
     alt_type : str
         identifier of second method
     """
-    numbins = numpy.shape(hist1)
     fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 6),constrained_layout=True)
     axes[0].set_title("Gaussian beam only")
     if (alt_type == None):
@@ -260,6 +283,45 @@ def display_detected_images(pixel_size,hist1,hist2,alt_type=None):
 
     return None
 
+def single_profile(regular_profile,size,res=None,popt=None):
+    """
+    Displays normalized radial profile of an illuminated point at each individual molecule
+     
+    Parameters
+    ----------
+    regular_profile : 2D array
+        profile of regular fluorescence microscopy (2 columns)
+    size : float
+        radius to which the profiles are evaluated
+    res : float
+        FWHM of response for ordinary excitation
+    popt : tuple
+        best fit parameters of ordinary excitation
+    """
+    fig = plt.figure()
+    ax = fig.add_subplot()
+
+    pts = len(regular_profile[:,0])
+    if (res is None or popt is None):
+        fitlabel1 = ""
+    else:
+        fit1 = numpy.empty(pts)
+        for i in range(pts):
+            fit1[i] = aux.gaussfunc(regular_profile[i,0],popt[0],popt[1])
+        fitlabel1 = "FWHM = $%.3f ~\mu m$" % (res*1e6)
+        ax.plot(regular_profile[:,0]*1e6,fit1,color="r")
+        plt.axvline(x=0.5*res*1e6,color="r",linestyle="--")
+
+    ax.scatter(regular_profile[:,0]*1e6,regular_profile[:,1],color="r",label=fitlabel1,s=2)
+
+    plt.legend(bbox_to_anchor=(0.6,0.9), borderaxespad=0)
+    plt.title("Per-fluorophore radial profile")
+    plt.xlabel(r"r [$\mu$m]")
+    plt.ylabel(r"$I/I_{max}$")
+    plt.xlim([0.0, size*1e6])
+    plt.ylim([0.0,1.05])
+    plt.show()
+    return None
 
 def compare_profiles(regular_profile,STED_profile,size,res1=None,res2=None,popt1=None,popt2=None):
     """

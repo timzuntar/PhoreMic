@@ -53,12 +53,15 @@ def fluorescence_exposure(phores,setup_pars,exc_pars,rng_seed=42):
 
     #calculates the number of photons the detector collects from each fluorophore 
     photon_counts = aux.calculate_single_image(phores, incident_photons, filter_spectrum, NA, n, detector_qeff, rng_seed)
-    plots.display_detected_photon_counts(phores,w0,photon_counts)
+    plots.display_detected_photon_counts(phores,Pexc,wavelength,w0,photon_counts,field_size)
 
     #simulates a finite detector resolution
     hist,_,_ = aux.pixel_binning(phores,photon_counts,w0*field_size,pixel_size)
-    plots.display_detected_image(hist)
+    plots.display_detected_image(pixel_size,hist)
     profile = aux.radial_signal_profile(phores,photon_counts)
+    FWHM,popt = aux.FWHM_calculator_Gaussian(profile,w0)
+
+    plots.single_profile(profile,field_size*w0,res=FWHM,popt=popt)
 
     return photon_counts,hist,profile
 
