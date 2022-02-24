@@ -21,7 +21,7 @@ Pexc = 1e-5
 I0 = 2*Pexc/(math.pi*(w0**2))
 #STED beam parameters
 STEDwavelength = 592e-9
-PSTED = 1e6*Pexc
+PSTED = 3e6*Pexc
 
 #other parameters
 rng_seed = 17
@@ -34,5 +34,8 @@ setup_pars = [n,NA,exptime,detector_qeff,pixel_size,field_size]
 exc_pars = [w0,wavelength,Pexc,I0]
 STED_pars = [STEDwavelength,PSTED] 
 
+#imports filter spectrum
+filter_spectrum = aux.get_filter_spectrum("test_filter")
+
 #simulates a single exposure of fluorescence microscopy with and without STED illumination
-routines.CW_STED_beam_fluorescence_exposure_comparison(phores,setup_pars,exc_pars,STED_pars,rng_seed)
+routines.CW_STED_beam_fluorescence_exposure_comparison(phores,setup_pars,exc_pars,STED_pars,filter_spectrum,rng_seed)

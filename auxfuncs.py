@@ -522,9 +522,43 @@ def get_emission_spectrum(phoretype):
     return emission_function
 
 def get_filter_spectrum(filter_name):
+    """
+    Loads spectrum of chosen filter
+
+    Parameters
+    ----------
+    filter_name : str
+        filter identifier
+    """
     with open("filter_spectra/" + filter_name + ".pkl", 'rb') as f:
         filter_function = pickle.load(f)
     return filter_function
+
+def arbitrary_bandpass_filter_spectrum(low_edge, low_edge_width, high_edge, high_edge_width, transmittivity):
+    """
+    Creates user-defined bandpass spectrum with linear transition at edges
+
+    Parameters
+    ----------
+    low_edge : float
+        wavelength at which transmittivity increases to half of maximum value [nm]
+    low_edge_width : float
+        width of transmittivity increase [nm]
+    high_edge : float
+        wavelength at which transmittivity lowers to half of maximum value [nm]
+    high_edge_width : float
+        width of transmittivity decrease [nm]
+    transmittivity : float
+        maximum transmittivity of filter
+    """
+    if (any((low_edge,low_edge_width,high_edge,high_edge_width,transmittivity)) < 0.0 or 0.5*(low_edge_width+high_edge_width)>(high_edge-low_edge) or low_edge > high_edge):
+        print("Error in specified parameters - filter spectrum cannot be computed.\nExiting.")
+        quit()
+        return None
+    xdata = [low_edge-0.5*low_edge_width,low_edge+0.5*low_edge_width,high_edge-0.5*high_edge_width,high_edge+0.5*high_edge_width]
+    ydata = [0.0,transmittivity,transmittivity,0.0]
+    spectrum = scipy.interpolate.interp1d(xdata,ydata,kind="linear")
+    return spectrum
 
 def read_properties(phoretype):
     """

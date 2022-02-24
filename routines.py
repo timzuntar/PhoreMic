@@ -5,7 +5,7 @@ import re
 import numpy
 import matplotlib.pyplot as plt
 
-def fluorescence_exposure(phores,setup_pars,exc_pars,rng_seed=42):
+def fluorescence_exposure(phores,setup_pars,exc_pars,filter_spectrum,rng_seed=42):
     """
     Simulates a single exposure of fluorescence microscopy
 
@@ -48,9 +48,6 @@ def fluorescence_exposure(phores,setup_pars,exc_pars,rng_seed=42):
     min_photons = numpy.amin(incident_photons)
     print("Maximum/minimum number of incident photons per fluorophore:\n %f / %f" % (max_photons,min_photons))
 
-    #imports filter spectrum
-    filter_spectrum = aux.get_filter_spectrum("test_filter")
-
     #calculates the number of photons the detector collects from each fluorophore 
     photon_counts = aux.calculate_single_image(phores, incident_photons, filter_spectrum, NA, n, detector_qeff, rng_seed)
     plots.display_detected_photon_counts(phores,Pexc,wavelength,w0,photon_counts,field_size)
@@ -66,7 +63,7 @@ def fluorescence_exposure(phores,setup_pars,exc_pars,rng_seed=42):
     return photon_counts,hist,profile
 
 
-def CW_STED_beam_fluorescence_exposure_comparison(phores,setup_pars,exc_pars,STED_pars,rng_seed=42):
+def CW_STED_beam_fluorescence_exposure_comparison(phores,setup_pars,exc_pars,STED_pars,filter_spectrum,rng_seed=42):
     """
     Simulates a single exposure of fluorescence microscopy with and without STED illumination
 
@@ -128,9 +125,6 @@ def CW_STED_beam_fluorescence_exposure_comparison(phores,setup_pars,exc_pars,STE
 
     print("Maximum number of incident photons per fluorophore:\nwithout STED: %f with STED: %f" % (max_photons,STED_max_photons))
     print("Minimum number of incident photons per fluorophore:\nwithout STED: %f with STED: %f" % (min_photons,STED_min_photons))
-
-    #imports filter spectrum
-    filter_spectrum = aux.get_filter_spectrum("test_filter")
 
     #calculates the number of photons the detector collects from each fluorophore 
     photon_counts = aux.calculate_single_image(phores, incident_photons, filter_spectrum, NA, n, detector_qeff, rng_seed)
