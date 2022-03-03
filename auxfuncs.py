@@ -37,6 +37,7 @@ def gaussian_point_intensity(point_coords, n, wavelength, w0, I0):
 def STED_2D_approx_point_intensity(point_coords, STEDwavelength, P, NA):
     """
     Intensity of depletion beam using the standing wave approximation, with an analytical solution
+    NOTE: does not take into account out-of-focus beam spread!
 
     Parameters
     ----------
@@ -60,6 +61,7 @@ def STED_2D_approx_point_intensity(point_coords, STEDwavelength, P, NA):
 def STED_2D_point_intensity(point_coords, STEDwavelength, NA_eff):
     """
     Determines the intensity of depletion beam at chosen point with prediction for a coherent plane wave passing through a 2-pi vortex plate
+    NOTE: does not take into account out-of-focus beam spread!
 
     Parameters
     ----------
@@ -308,7 +310,8 @@ def field_STED_illumination_intensities(phores, STEDwavelength, P, NA):
 
 def illumination_fraction(NA, n):
     """
-    Fraction of solid angle over which emitted light is collected
+    Fraction of solid angle over which emitted light is collected. Assumes source to be exactly in focus,
+    but the errors caused by that are negligible.
 
     Parameters
     ----------

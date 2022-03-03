@@ -62,6 +62,28 @@ def fluorescence_exposure(phores,setup_pars,exc_pars,filter_spectrum,rng_seed=42
 
     return photon_counts,hist,profile
 
+def fluorescence_exposure_recompute_grid(phores,photon_counts,setup_pars,exc_pars):
+    """
+    Recomputes pixel map at detector for single exposure
+
+    Parameters
+    ----------
+    phores : 2D array
+        types and positions of fluorophores
+    photon_counts : 1D array
+        numbers of detected photons per fluorophore 
+    setup_pars : 1D array
+        parameters of optical setup and sample medium
+    exc_pars : 1D array
+        parameters of excitation illumination
+    """
+
+    pixel_size = setup_pars[4]
+    field_size = setup_pars[5]
+    w0 = exc_pars[0]
+    hist,_,_ = aux.pixel_binning(phores,photon_counts,w0*field_size,pixel_size)
+    plots.display_detected_image(pixel_size,hist)
+    return hist
 
 def CW_STED_beam_fluorescence_exposure_comparison(phores,setup_pars,exc_pars,STED_pars,filter_spectrum,rng_seed=42):
     """
@@ -148,6 +170,32 @@ def CW_STED_beam_fluorescence_exposure_comparison(phores,setup_pars,exc_pars,STE
     plots.compare_profiles(profile,STED_profile,field_size*w0,res1=FWHM,res2=FWHM_STED,popt1=popt,popt2=popt_STED)
 
     return photon_counts,STED_photon_counts,hist,STEDhist,profile,STED_profile
+
+def exposure_comparison_recompute_grid(phores,photon_counts,STED_photon_counts,setup_pars,exc_pars):
+    """
+    Recomputes pixel map at detector for single exposures with and without depletion beam active
+
+    Parameters
+    ----------
+    phores : 2D array
+        types and positions of fluorophores
+    photon_counts : 1D array
+        numbers of detected photons per fluorophore
+    STED_photon_counts : 1D array
+        numbers of detected photons per fluorophore with depletion beam active
+    setup_pars : 1D array
+        parameters of optical setup and sample medium
+    exc_pars : 1D array
+        parameters of excitation illumination
+    """
+
+    pixel_size = setup_pars[4]
+    field_size = setup_pars[5]
+    w0 = exc_pars[0]
+    hist,_,_ = aux.pixel_binning(phores,photon_counts,w0*field_size,pixel_size)
+    STEDhist,_,_ = aux.pixel_binning(phores,STED_photon_counts,w0*field_size,pixel_size)
+    plots.display_detected_images(pixel_size,hist,STEDhist,alt_type="STED")
+    return hist,STEDhist
 
 def define_emission_sampler(phoretype,filename="dye_spectra/Laplace_PDFs.dat",Npts=10,maxiter=100):
     """
