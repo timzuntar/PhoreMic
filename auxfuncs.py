@@ -36,8 +36,8 @@ def gaussian_point_intensity(point_coords, n, wavelength, w0, I0):
 
 def STED_2D_approx_point_intensity(point_coords, STEDwavelength, P, NA):
     """
-    Intensity of depletion beam using the standing wave approximation, with an analytical solution
-    NOTE: does not take into account out-of-focus beam spread!
+    Intensity of depletion beam using the standing wave approximation, with a simple analytical solution
+    NOTE: out-of-focus beam spread is approximated with characteristics of a Gaussian beam with its waist diameter at the annulus maximum.
 
     Parameters
     ----------
@@ -50,18 +50,28 @@ def STED_2D_approx_point_intensity(point_coords, STEDwavelength, P, NA):
     NA : float
         numerical aperture of depletion beam
     """
-    maxradius = STEDwavelength/NA
     radius = math.sqrt(point_coords[0]**2 + point_coords[1]**2)
-    if (radius < maxradius):
-        square = (math.sin(math.pi*NA*radius/STEDwavelength))**2
-        return (2*P/math.pi)*((NA/STEDwavelength)**2) * square
+    if (numpy.isclose(point_coords[2], 0.0, rtol=1e-05, atol=1e-12, equal_nan=False) == True):
+        maxradius = STEDwavelength/NA
+        if (radius < maxradius):
+            square = (math.sin(math.pi*NA*radius/STEDwavelength))**2
+            return (2*P/math.pi)*((NA/STEDwavelength)**2) * square
+        else:
+            return 0.0
     else:
-        return 0.0
+        w0 = STEDwavelength/(2*NA)
+        z0 = math.pi*w0*w0/STEDwavelength
+        widening = math.sqrt(1+(point_coords[2]/z0)**2)
+        if (radius < 2*w0*widening):
+            square = (math.sin(math.pi*NA*radius/(STEDwavelength*widening)))**2
+            return P/(2*math.pi*(w0*widening)**2)
+        else:
+            return 0.0
 
 def STED_2D_point_intensity(point_coords, STEDwavelength, NA_eff):
     """
     Determines the intensity of depletion beam at chosen point with prediction for a coherent plane wave passing through a 2-pi vortex plate
-    NOTE: does not take into account out-of-focus beam spread!
+    NOTE: does not take into account out-of-focus beam spread, should only be used for 2D distributions!
 
     Parameters
     ----------
