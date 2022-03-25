@@ -1,6 +1,10 @@
 import tkinter
 from tkinter import HORIZONTAL, VERTICAL, ttk
 from os import path
+import numpy
+
+fluorlist = str(numpy.genfromtxt("dye_spectra/properties.dat", dtype="U",usecols=(1),comments="#",skip_header=1,max_rows=1000))
+#fluorlist = ["placeholder1","placeholder2","placeholder3"]
 
 windowwidth = 500
 windowheight = 400
@@ -118,7 +122,7 @@ profrad2 = ttk.Radiobutton(tab1,text='vortex plate', variable = STEDprofilevar, 
 profrad1.grid(column=5, row=setuprow+13)
 profrad2.grid(column=5, row=setuprow+14)
 
-NAefflabel = ttk.Label(tab1,text="effective NA multiplier",justify="right",anchor="w")
+NAefflabel = ttk.Label(tab1,text="Effective NA multiplier",justify="right",anchor="w")
 NAefflabel.grid(column=4,row=setuprow+15)
 NAeffentry = ttk.Entry(tab1,width=setupentrywidth,justify="right")
 NAeffentry.grid(column=5, row=setuprow+15)
@@ -135,8 +139,54 @@ savepars_btn.grid(column=1, row=9)
 restorepars_btn = ttk.Button(tab1, text="Restore defaults", command=restorepars,width=18)
 restorepars_btn.grid(column=1, row=10)
 
-label2 = ttk.Label(tab2,text ="placeholder for definition and display of created fluorophore field")
-label2.grid(column=1, row=1)
+
+
+ttk.Separator(tab2, orient=VERTICAL).grid(column=0, row=0, rowspan=8, sticky='N,S')
+ttk.Separator(tab2, orient=VERTICAL).grid(column=3, row=0, rowspan=8, sticky='N,S')
+
+ttk.Separator(tab2, orient=HORIZONTAL).grid(row=0, columnspan=3, sticky='W,E')
+fluorophoresetup = ttk.Label(tab2,text ="Fluorophore definition",font="Brown-gothic 11")
+fluorophoresetup.grid(column=1, row=1)
+ttk.Separator(tab2, orient=HORIZONTAL).grid(row=2, columnspan=3, sticky='W,E')
+
+
+fluor1density = ttk.Label(tab2,text="Density [per m^2]",justify="left",anchor="w")
+fluor1density.grid(column=1,row=10)
+fieldtypevar = tkinter.IntVar(value=1)
+
+def set2D3D():
+    ft = fieldtypevar.get()
+    if (ft == 1):
+        fluor1density.configure(text="Density [per m^2]")
+    elif (ft == 2):
+        fluor1density.configure(text="Density [per m^3]")
+
+typelabel = ttk.Label(tab2,text="Field type:",justify="left",anchor="w")
+typelabel.grid(column=1,row=3)
+typerad1 = ttk.Radiobutton(tab2,text='2D', variable = fieldtypevar, value=1, width=10, command=set2D3D)
+typerad2 = ttk.Radiobutton(tab2,text='3D', variable = fieldtypevar, value=2, width=10, command=set2D3D)
+typerad1.grid(column=1, row=4)
+typerad2.grid(column=2, row=4)
+
+axdimlabel = ttk.Label(tab2,text="Axial dimension [w0]",justify="left",anchor="w")
+axdimlabel.grid(column=1,row=5)
+axdimentry = ttk.Entry(tab2,width=setupentrywidth,justify="right")
+axdimentry.grid(column=2,row=5)
+latdimlabel = ttk.Label(tab2,text="Lateral dimension [w0]",justify="left",anchor="w")
+latdimlabel.grid(column=1,row=6)
+latdimentry = ttk.Entry(tab2,width=setupentrywidth,justify="right")
+latdimentry.grid(column=2,row=6)
+ttk.Separator(tab2, orient=HORIZONTAL).grid(row=7, columnspan=3, sticky='W,E')
+
+fluor1label = ttk.Label(tab2,text ="Type 1",font="Brown-gothic 11")
+fluor1label.grid(column=1, row=8)
+fluor1type = ttk.Combobox(tab2, values = fluorlist,width=22)
+fluor1type.set("pick fluorophore type")
+fluor1type.grid(column=1,row=9)
+
+fluor1densityentry = ttk.Entry(tab2,width=setupentrywidth,justify="right")
+fluor1densityentry.grid(column=2,row=10)
+
 label3 = ttk.Label(tab3,text ="placeholder for definition of filters and spectral map")
 label3.grid(column=1, row=1)
 label4 = ttk.Label(tab4,text ="results go here")
