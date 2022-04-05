@@ -1,13 +1,14 @@
 import tkinter
 from tkinter import HORIZONTAL, VERTICAL, ttk
+from PIL import Image, ImageTk
 from os import path
 import numpy
 
 fluorlist = str(numpy.genfromtxt("dye_spectra/properties.dat", dtype="U",usecols=(1),comments="#",skip_header=1,max_rows=1000))
 #fluorlist = ["placeholder1","placeholder2","placeholder3"]
 
-windowwidth = 500
-windowheight = 400
+windowwidth = 820
+windowheight = 360
 
 window = tkinter.Tk()
 window.geometry("%dx%d" % (windowwidth,windowheight))
@@ -141,8 +142,8 @@ restorepars_btn.grid(column=1, row=10)
 
 
 
-ttk.Separator(tab2, orient=VERTICAL).grid(column=0, row=0, rowspan=8, sticky='N,S')
-ttk.Separator(tab2, orient=VERTICAL).grid(column=3, row=0, rowspan=8, sticky='N,S')
+ttk.Separator(tab2, orient=VERTICAL).grid(column=0, row=0, rowspan=19, sticky='N,S')
+ttk.Separator(tab2, orient=VERTICAL).grid(column=3, row=0, rowspan=19, sticky='N,S')
 
 ttk.Separator(tab2, orient=HORIZONTAL).grid(row=0, columnspan=3, sticky='W,E')
 fluorophoresetup = ttk.Label(tab2,text ="Fluorophore definition",font="Brown-gothic 11")
@@ -152,14 +153,22 @@ ttk.Separator(tab2, orient=HORIZONTAL).grid(row=2, columnspan=3, sticky='W,E')
 
 fluor1density = ttk.Label(tab2,text="Density [per m^2]",justify="left",anchor="w")
 fluor1density.grid(column=1,row=10)
+fluor2density = ttk.Label(tab2,text="Density [per m^2]",justify="left",anchor="w")
+fluor2density.grid(column=1,row=14)
+fluor3density = ttk.Label(tab2,text="Density [per m^2]",justify="left",anchor="w")
+fluor3density.grid(column=1,row=18)
 fieldtypevar = tkinter.IntVar(value=1)
 
 def set2D3D():
     ft = fieldtypevar.get()
     if (ft == 1):
         fluor1density.configure(text="Density [per m^2]")
+        fluor2density.configure(text="Density [per m^2]")
+        fluor3density.configure(text="Density [per m^2]")
     elif (ft == 2):
         fluor1density.configure(text="Density [per m^3]")
+        fluor2density.configure(text="Density [per m^3]")
+        fluor3density.configure(text="Density [per m^3]")
 
 typelabel = ttk.Label(tab2,text="Field type:",justify="left",anchor="w")
 typelabel.grid(column=1,row=3)
@@ -186,6 +195,40 @@ fluor1type.grid(column=1,row=9)
 
 fluor1densityentry = ttk.Entry(tab2,width=setupentrywidth,justify="right")
 fluor1densityentry.grid(column=2,row=10)
+
+ttk.Separator(tab2, orient=HORIZONTAL).grid(row=11, columnspan=3, sticky='W,E')
+fluor2label = ttk.Label(tab2,text ="Type 2",font="Brown-gothic 11")
+fluor2label.grid(column=1, row=12)
+fluor2type = ttk.Combobox(tab2, values = fluorlist,width=22)
+fluor2type.set("pick fluorophore type")
+fluor2type.grid(column=1,row=13)
+
+fluor2densityentry = ttk.Entry(tab2,width=setupentrywidth,justify="right")
+fluor2densityentry.grid(column=2,row=14)
+
+ttk.Separator(tab2, orient=HORIZONTAL).grid(row=15, columnspan=3, sticky='W,E')
+fluor3label = ttk.Label(tab2,text ="Type 3",font="Brown-gothic 11")
+fluor3label.grid(column=1, row=16)
+fluor3type = ttk.Combobox(tab2, values = fluorlist,width=22)
+fluor3type.set("pick fluorophore type")
+fluor3type.grid(column=1,row=17)
+
+fluor3densityentry = ttk.Entry(tab2,width=setupentrywidth,justify="right")
+fluor3densityentry.grid(column=2,row=18)
+
+ttk.Separator(tab2, orient=HORIZONTAL).grid(row=19, columnspan=3, sticky='W,E')
+
+def populate():
+    return 0
+
+populate_btn = ttk.Button(tab2, text="Generate fluorophore distribution", command=populate,width=35)
+populate_btn.grid(column=1, row=20)
+
+img_placeholder_native = Image.open("GUIelements/phoremap_placeholder.png")
+img_placeholder_native.thumbnail((450,300))
+img_placeholder_map = ImageTk.PhotoImage(img_placeholder_native)
+imgmaplabel = ttk.Label(tab2,image=img_placeholder_map)
+imgmaplabel.grid(column=4, row=0,rowspan=21)
 
 label3 = ttk.Label(tab3,text ="placeholder for definition of filters and spectral map")
 label3.grid(column=1, row=1)
