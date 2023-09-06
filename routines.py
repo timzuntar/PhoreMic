@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 def fluorescence_exposure(phores,setup_pars,exc_pars,filter_spectrum,rng_seed=42):
     """
-    Simulates a single exposure of fluorescence microscopy
+    Simulates a single exposure of fluorescence microscopy (equivalent to a "pixel")
 
     Parameters
     ----------
@@ -87,7 +87,7 @@ def fluorescence_exposure_recompute_grid(phores,photon_counts,setup_pars,exc_par
 
 def CW_STED_beam_fluorescence_exposure_comparison(phores,setup_pars,exc_pars,STED_pars,filter_spectrum,rng_seed=42):
     """
-    Simulates a single exposure of fluorescence microscopy with and without STED illumination
+    Simulates a single exposure of fluorescence microscopy first without, then with STED illumination
 
     Parameters
     ----------

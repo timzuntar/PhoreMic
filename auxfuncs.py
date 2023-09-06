@@ -28,11 +28,11 @@ def gaussian_point_intensity(point_coords, n, wavelength, w0, I0):
     I0 : float
         intensity in center of waist [W/m^2]
     """
-    if (numpy.isclose(point_coords[2], 0.0, rtol=1e-05, atol=1e-12, equal_nan=False) == True):
-        return I0*math.exp(-2*(point_coords[0]**2 + point_coords[1]**2)/(w0*w0))
+    if (numpy.isclose(point_coords[2], 0.0, rtol=1e-05, atol=1e-12, equal_nan=False) == True):  # checks if point is very close (<1 pm) to zero plane
+        return I0*math.exp(-2*(point_coords[0]**2 + point_coords[1]**2)/(w0*w0))    # this saves a little bit of performance as width doesn't need to be computed
     else:
         w = w0 * math.sqrt(1 + (point_coords[2]*wavelength/(math.pi*n*w0*w0))**2)
-        return I0*((w0/w)**2)*math.exp(-2*(point_coords[0]**2 + point_coords[1]**2)/(w*w))
+        return I0*((w0/w)**2)*math.exp(-2*(point_coords[0]**2 + point_coords[1]**2)/(w*w))  # from definition of (perfect) Gaussian beam intensity
 
 def STED_2D_approx_point_intensity(point_coords, STEDwavelength, P, NA):
     """
@@ -71,6 +71,7 @@ def STED_2D_approx_point_intensity(point_coords, STEDwavelength, P, NA):
 def STED_2D_point_intensity(point_coords, STEDwavelength, NA_eff):
     """
     Determines the intensity of depletion beam at chosen point with prediction for a coherent plane wave passing through a 2-pi vortex plate
+    as described by Neupane et al. (2013)
     NOTE: does not take into account out-of-focus beam spread, should only be used for 2D distributions!
 
     Parameters
@@ -673,6 +674,7 @@ def collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_
         random number generator (for checking whether photons get transmitted)
     """
     emitted_photons_at_filter = incident_photons*quantum_yield*illumination
+    print(emitted_photons_at_filter)
     collected_photons = 0
     for i in range(int(emitted_photons_at_filter)):
         photon_wavelength = naive_rejection_sampler(emission_spectrum,emission_spectrum.x[0],emission_spectrum.x[-1],pdf_parameters)
@@ -816,9 +818,12 @@ def FWHM_calculator_lin(profile,w0):
     profile = profile[profile[:, 1] >= 0.4, :]
     profile = profile[profile[:, 1] <= 0.6, :]
 
-    popt,_ = scipy.optimize.curve_fit(linfunc,profile[:,0],profile[:,1],[-1/w0,1.0])
-    FWHM = 2*(0.5-popt[1])/popt[0]
-    return FWHM,popt
+    try:
+        popt,_ = scipy.optimize.curve_fit(linfunc,profile[:,0],profile[:,1],[-1/w0,1.0])
+        FWHM = 2*(0.5-popt[1])/popt[0]
+        return FWHM,popt
+    except:
+        print("FWHM could not be estimated by linear fitting.")
 
 def pdf_objective_function(params,spectrum,Npts):
     """
@@ -861,7 +866,8 @@ def pdf_objective_function(params,spectrum,Npts):
 
 def optimize_distribution(phoretype,Npts=10,maxiter=100):
     """
-    Calculates the optimal (least wasted evaluations) distribution function for rejection sampling of emitted photon wavelengths
+    Calculates the optimal distribution function for rejection sampling of emitted photon wavelengths,
+    where the optimum distribution defined as the one with fewest wasted photon evaluations. 
 
     Parameters
     ----------
@@ -883,6 +889,8 @@ def optimize_distribution(phoretype,Npts=10,maxiter=100):
     guess = [locguess,25.0,0.6,80.0]
     #bounds = [(spectrum.x[0],spectrum.x[-1]),(0.0,None),(None,None),(0.0,None)]
     print("Starting minimization. This may take several minutes.")
-    result = scipy.optimize.minimize(pdf_objective_function,guess,args=(spectrum,Npts),tol=1.0,method="Nelder-Mead",options={"maxiter": maxiter,'disp': True})
-
-    return result.x
+    try:
+        result = scipy.optimize.minimize(pdf_objective_function,guess,args=(spectrum,Npts),tol=1.0,method="Nelder-Mead",options={"maxiter": maxiter,'disp': True})
+        return result.x
+    except:
+        print("Minimization failed. Please adjust starting parameters.")
