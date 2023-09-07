@@ -334,10 +334,9 @@ def all_incident(phores, exptime, wavelength, xsections, intensities):
 
     for t,phoretype in enumerate(phoretypes):
         xsection = xsections[t]
-        for i in range(phorenum):
-            if (phores[i,0] == phoretype):
-                incident_counts[i] = incident_photons_per_exposure(exptime,wavelength,xsection,intensities[i])
-    return incident_counts    
+        where_phores = numpy.where(phores[:,0] == phoretype)[0]
+        incident_counts[where_phores] = incident_photons_per_exposure(exptime,wavelength,xsection,intensities[where_phores])
+    return incident_counts
 
 def STED_all_incident(phores, intensities, STEDintensities, exptime, wavelength, exc_rates, xsections, Isats):
     """
@@ -373,11 +372,11 @@ def STED_all_incident(phores, intensities, STEDintensities, exptime, wavelength,
         lifetime = props[3]
         vibrelaxrate,intersystem,kt1 = read_STED_properties(phoretype)
         ks1 = 1.0/(lifetime)
-        for i in range(phorenum):
-            if (phores[i,0] == phoretype):
-                _,prob = STED_CW_rates(STEDintensities[i], Isat, exc_rates[i], ks1, vibrelaxrate, intersystem=intersystem, kt1=kt1)
-                incident_counts[i] = prob*incident_photons_per_exposure(exptime,wavelength,xsection,intensities[i])
-    return incident_counts  
+
+        where_phores = numpy.where(phores[:,0] == phoretype)[0]
+        _,prob = STED_CW_rates(STEDintensities[where_phores], Isat, exc_rates[where_phores], ks1, vibrelaxrate, intersystem=intersystem, kt1=kt1)
+        incident_counts[where_phores] = prob*incident_photons_per_exposure(exptime,wavelength,xsection,intensities[where_phores])
+    return incident_counts
 
 def interpolate_absorption_spectrum(filename, example_xsection, example_wavelength, show=False):
     """
