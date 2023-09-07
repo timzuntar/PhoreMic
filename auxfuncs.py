@@ -11,14 +11,14 @@ import scipy.optimize
 import matplotlib.pyplot as plt
 
 
-def gaussian_point_intensity(point_coords, n, wavelength, w0, I0):
+def gaussian_point_intensities(point_coords, n, wavelength, w0, I0):
     """
     Returns intensity of the TEM00 (Gaussian) beam at a point in space.
 
     Parameters
     ----------
-    point_coords : list of float
-        x,y, and z position relative to center of beam waist [m]
+    point_coords : 2D array
+        x,y, and z positions relative to center of beam waist [m]
     n : float
         refractive index of propagation medium
     wavelength : float
@@ -28,12 +28,15 @@ def gaussian_point_intensity(point_coords, n, wavelength, w0, I0):
     I0 : float
         intensity in center of waist [W/m^2]
     """
-    if (numpy.isclose(point_coords[2], 0.0, rtol=1e-05, atol=1e-12, equal_nan=False) == True):  # checks if point is very close (<1 pm) to zero plane
-        return I0*math.exp(-2*(point_coords[0]**2 + point_coords[1]**2)/(w0*w0))    # this saves a little bit of performance as width doesn't need to be computed
-    else:
-        w = w0 * math.sqrt(1 + (point_coords[2]*wavelength/(math.pi*n*w0*w0))**2)
-        return I0*((w0/w)**2)*math.exp(-2*(point_coords[0]**2 + point_coords[1]**2)/(w*w))  # from definition of (perfect) Gaussian beam intensity
-
+    boolmask = numpy.isclose(point_coords[:,2], 0.0, rtol=1e-05, atol=1e-12, equal_nan=False)   # checks if point is very close (<1 pm) to zero plane
+    zero_indices = numpy.where(boolmask)[0]
+    nonzero_indices = numpy.where(numpy.logical_not(boolmask))[0]
+    intensities = numpy.empty(len(boolmask),dtype=float)    # this saves a little bit of performance as width doesn't need to be computed
+    intensities[zero_indices] = I0*numpy.exp(-2*(numpy.square(point_coords[zero_indices,0]) + numpy.square(point_coords[zero_indices,1]))/(w0*w0))
+    beam_waists = w0 * numpy.sqrt(1 + (point_coords[nonzero_indices,2]*wavelength/(numpy.pi*n*w0*w0))**2)
+    intensities[nonzero_indices] = I0*((w0/beam_waists)**2)*numpy.exp(-2*(numpy.square(point_coords[nonzero_indices,0]) + numpy.square(point_coords[nonzero_indices,1]))/numpy.square(beam_waists))
+    return intensities
+        
 def STED_2D_approx_point_intensity(point_coords, STEDwavelength, P, NA):
     """
     Intensity of depletion beam using the standing wave approximation, with a simple analytical solution
@@ -41,8 +44,8 @@ def STED_2D_approx_point_intensity(point_coords, STEDwavelength, P, NA):
 
     Parameters
     ----------
-    point_coords : float
-        refractive index of propagation medium
+    point_coords : 2D array
+        x,y, and z positions relative to center of beam waist [m]
     STEDwavelength : float
         wavelength of depletion beam [m]
     P : float
@@ -50,23 +53,23 @@ def STED_2D_approx_point_intensity(point_coords, STEDwavelength, P, NA):
     NA : float
         numerical aperture of depletion beam
     """
-    radius = math.sqrt(point_coords[0]**2 + point_coords[1]**2)
-    if (numpy.isclose(point_coords[2], 0.0, rtol=1e-05, atol=1e-12, equal_nan=False) == True):
-        maxradius = STEDwavelength/NA
-        if (radius < maxradius):
-            square = (math.sin(math.pi*NA*radius/STEDwavelength))**2
-            return (2*P/math.pi)*((NA/STEDwavelength)**2) * square
-        else:
-            return 0.0
-    else:
-        w0 = STEDwavelength/(2*NA)
-        z0 = math.pi*w0*w0/STEDwavelength
-        widening = math.sqrt(1+(point_coords[2]/z0)**2)
-        if (radius < 2*w0*widening):
-            square = (math.sin(math.pi*NA*radius/(STEDwavelength*widening)))**2
-            return P/(2*math.pi*(w0*widening)**2)
-        else:
-            return 0.0
+    radii = numpy.sqrt(numpy.square(point_coords[:,0]) + numpy.square(point_coords[:,1]))
+    boolmask = numpy.isclose(point_coords[:,2], 0.0, rtol=1e-05, atol=1e-12, equal_nan=False)   # checks if point is very close (<1 pm) to zero plane
+    zero_inside_indices = numpy.where((boolmask) & (radii - STEDwavelength/NA < 0.0))[0]
+    zero_outside_indices = numpy.where((boolmask) & (radii - STEDwavelength/NA >= 0.0))[0]
+    intensities = numpy.empty(len(radii),dtype=float)
+
+    intensities[zero_inside_indices] = ((2*P/numpy.pi) * numpy.square(NA/STEDwavelength)) * numpy.square(numpy.sin(numpy.pi*NA*radii[zero_inside_indices]/STEDwavelength))
+    intensities[zero_outside_indices] = 0.0
+
+    w0 = STEDwavelength/(2*NA)
+    z0 = numpy.pi*w0*w0/STEDwavelength
+    widening = numpy.sqrt(1+numpy.square(point_coords[:,2]/z0))
+    nonzero_inside_indices = numpy.where((numpy.logical_not(boolmask)) & (radii-2*w0*widening < 0.0))[0]
+    nonzero_outside_indices = numpy.where((numpy.logical_not(boolmask)) & (radii-2*w0*widening >= 0.0))[0]
+    intensities[nonzero_inside_indices] = (P/(2*math.pi*numpy.square(w0*widening[nonzero_inside_indices]))) * numpy.square(numpy.sin(numpy.pi*NA*radii[nonzero_inside_indices]/(STEDwavelength*widening[nonzero_inside_indices])))  #TODO: double-check!
+    intensities[nonzero_outside_indices] = 0.0
+    return intensities
 
 def STED_2D_point_intensity(point_coords, STEDwavelength, NA_eff):
     """
@@ -76,8 +79,8 @@ def STED_2D_point_intensity(point_coords, STEDwavelength, NA_eff):
 
     Parameters
     ----------
-    point_coords : float
-        refractive index of propagation medium
+    point_coords : list of float
+        x,y, and z position relative to center of beam waist [m]
     STEDwavelength : float
         wavelength of depletion beam [m]
     NA_eff : float
@@ -274,50 +277,6 @@ def get_all_xsections(phores,wavelength):
     for i,type in enumerate(phoretypes):
         xsections[i] = get_absorption_xsection(type,wavelength)
     return xsections
-    
-def field_add_illumination_intensities(phores, n, wavelength, w0, I0):
-    """
-    Calculates (expected) illumination intensities for all points
-
-    Parameters
-    ----------
-    phores : 2D array
-        types and positions of fluorophores
-    n : float
-        refractive index of propagation medium
-    wavelength : float
-        illumination wavelength [m]
-    w0 : float
-        beam diameter at waist [m]
-    I0 : float
-        intensity in center of waist [W/m^2]
-    """
-    phorenum = numpy.shape(phores)[0]
-    intensities = numpy.empty(phorenum,dtype=float)
-    for i in range(phorenum):
-        intensities[i] = gaussian_point_intensity((phores[i][1],phores[i][2],phores[i][3]), n, wavelength, w0, I0)
-    return intensities
-
-def field_STED_illumination_intensities(phores, STEDwavelength, P, NA):
-    """
-    Calculates (expected) intensities of STED beam at all points
-
-    Parameters
-    ----------
-    phores : 2D array
-        types and positions of fluorophores
-    STEDwavelength : float
-        wavelength of depletion beam [m]
-    P : float
-        total beam power [W]
-    NA : float
-        numerical aperture of depletion beam
-    """
-    phorenum = numpy.shape(phores)[0]
-    STEDintensities = numpy.empty(phorenum,dtype=float)
-    for i in range(phorenum):
-        STEDintensities[i] = STED_2D_approx_point_intensity((phores[i][1],phores[i][2],phores[i][3]), STEDwavelength, P, NA)
-    return STEDintensities
 
 def illumination_fraction(NA, n):
     """
@@ -674,9 +633,8 @@ def collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_
         random number generator (for checking whether photons get transmitted)
     """
     emitted_photons_at_filter = incident_photons*quantum_yield*illumination
-    print(emitted_photons_at_filter)
     collected_photons = 0
-    for i in range(int(emitted_photons_at_filter)):
+    for i in range(int(emitted_photons_at_filter)): # unfortunately, some discretization needs to be done here
         photon_wavelength = naive_rejection_sampler(emission_spectrum,emission_spectrum.x[0],emission_spectrum.x[-1],pdf_parameters)
         if (photon_wavelength > filter_spectrum.x[0] and photon_wavelength < filter_spectrum.x[-1]):
             collected_photons += 1

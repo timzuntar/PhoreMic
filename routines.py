@@ -4,6 +4,7 @@ import math
 import re
 import numpy
 import matplotlib.pyplot as plt
+import time
 
 def fluorescence_exposure(phores,setup_pars,exc_pars,filter_spectrum,rng_seed=42):
     """
@@ -35,7 +36,7 @@ def fluorescence_exposure(phores,setup_pars,exc_pars,filter_spectrum,rng_seed=42
     #displays fluorophore distribution
     plots.display_2D_fluorophore_field(phores,w0,field_size,Pexc,wavelength)
 
-    intensities = aux.field_add_illumination_intensities(phores, n, wavelength, w0, I0)
+    intensities = aux.gaussian_point_intensities(phores[:,1:4], n, wavelength, w0, I0)
     print("Max intensity: %e" % (numpy.amax(intensities)))
     
     #imports the relevant absorption spectra and calculates cross-section at excitation wavelength
@@ -119,7 +120,7 @@ def CW_STED_beam_fluorescence_exposure_comparison(phores,setup_pars,exc_pars,STE
     #displays fluorophore distribution
     plots.display_2D_fluorophore_field(phores,w0,field_size,Pexc,wavelength)
 
-    intensities = aux.field_add_illumination_intensities(phores, n, wavelength, w0, I0)
+    intensities = aux.gaussian_point_intensities(phores[:,1:4], n, wavelength, w0, I0)
 
     #imports the relevant absorption spectra and calculates cross-section at excitation wavelength
     xsections = aux.get_all_xsections(phores,wavelength)
@@ -127,15 +128,14 @@ def CW_STED_beam_fluorescence_exposure_comparison(phores,setup_pars,exc_pars,STE
     #as well as the saturation intensities
     Isats = aux.STED_get_all_Isat(phores,STEDxsections,STEDwavelength)
 
-    #calculates the mean numbers of absorbed photons per exposure  
+    #calculates the mean numbers of absorbed photons per exposure
     incident_photons = aux.all_incident(phores, exptime, wavelength, xsections, intensities)
 
     #the following needs to be calculated for STED illumination
     #excitation rates of the main beam
     exc_rates = incident_photons/exptime
     #intensities of STED beam
-    STED_intensities = aux.field_STED_illumination_intensities(phores, STEDwavelength, PSTED, NA)
-
+    STED_intensities = aux.STED_2D_approx_point_intensity(phores[:,1:4], STEDwavelength, PSTED, NA)
     STED_incident_photons = aux.STED_all_incident(phores, intensities, STED_intensities, exptime, wavelength, exc_rates, xsections, Isats)
 
     print("Max intensity\nno STED: %e STED: %e" % (numpy.amax(intensities),numpy.amax(STED_intensities)))
