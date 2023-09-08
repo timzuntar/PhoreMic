@@ -87,10 +87,10 @@ def STED_2D_point_intensity(point_coords, STEDwavelength, NA_eff):
         effective numerical aperture of depletion beam
     """
     k = 2*math.pi/STEDwavelength
-    x = k*NA_eff*math.sqrt(point_coords[0]**2+point_coords[1]**2)
+    x = k*NA_eff*numpy.sqrt(numpy.square(point_coords[:,0])+numpy.square(point_coords[:,1]))
 
-    C = (0.5*math.pi*k*NA_eff)**2
-    return (C/(x**2))*(scipy.special.jv(1,x)*scipy.special.struve(0,x)-scipy.special.jv(0,x)*scipy.special.struve(1,x))**2
+    C = (0.5*numpy.pi*k*NA_eff)**2
+    return (C/(numpy.square(x)))*numpy.square(scipy.special.jv(1,x)*scipy.special.struve(0,x)-scipy.special.jv(0,x)*scipy.special.struve(1,x))
 
 def STED_2D_intensity_normalization(n, STEDwavelength, P, NA_eff, lossfactor=0.0, integrationwidth=10):
     """
@@ -115,11 +115,9 @@ def STED_2D_intensity_normalization(n, STEDwavelength, P, NA_eff, lossfactor=0.0
     samples = 5001
     rlist = numpy.linspace(1e-9, peakradius*integrationwidth, num=samples, endpoint=True)
     ilist = numpy.empty(samples)
+    ilist = STED_2D_point_intensity(numpy.column_stack((rlist,numpy.zeros_like(rlist),numpy.zeros_like(rlist))),STEDwavelength,NA_eff)*rlist*2*numpy.pi
 
-    for i in range(samples):
-        ilist[i] = STED_2D_point_intensity([rlist[i],0.0,0.0],STEDwavelength,NA_eff)*rlist[i]*2*math.pi
-
-    integral = math.fabs(scipy.integrate.simpson(rlist,ilist))
+    integral = numpy.fabs(scipy.integrate.simpson(rlist,ilist))
     return P*(1.0-lossfactor)/integral
 
 def STED_saturation_intensity(lifetime, STxsection, STwavelength):
@@ -612,6 +610,45 @@ def naive_rejection_sampler(n,spectrum,lowbound,highbound,pdf_parameters):
                     break
     return wavelengths
 
+def naive_rejection_sampler_optimized(n,spectrum,lowbound,highbound,pdf_parameters):
+    """
+    Keeps rejection sampling a distribution until it succeeds. Optimized version of the above function.
+    TODO: Rewrite the second part with a recursive loop so process doesn't fail even with pathological distributions
+
+    Parameters
+    ----------
+    n : int
+        number of samples to return
+    spectrum : obj
+        interpolation result
+    lowbound : float
+        lower bound of spectrum
+    highbound : float
+        high bound of spectrum
+    pdf_parameters : 1D array
+        parameters of distribution for sampling from emission spectrum
+    """
+    M=pdf_parameters[3]
+    wavelengths = numpy.empty(n,dtype=float)
+    rs = scipy.stats.laplace_asymmetric.rvs(loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2],size=(int)(1.5*n))
+    envelopes = M*scipy.stats.laplace_asymmetric.pdf(rs,loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
+    ps = numpy.random.uniform(numpy.zeros_like(envelopes), envelopes)
+    spectralvalues = spectrum(rs)
+    indices = numpy.where((lowbound <= rs) & (rs <= highbound) & (ps < spectralvalues))[0]
+    if (len(indices) > n):
+        return rs[indices][0:n]
+    else:
+        wavelengths[0:len(indices)] = rs[indices]
+        diff = n-len(indices)
+        rs2 = scipy.stats.laplace_asymmetric.rvs(loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2],size=(int)(diff*2*n/(len(indices)+1)))
+        envelopes2 = M*scipy.stats.laplace_asymmetric.pdf(rs2,loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
+        ps2 = numpy.random.uniform(numpy.zeros_like(envelopes2), envelopes2)
+        spectralvalues2 = spectrum(rs2)
+        indices2 = numpy.where((lowbound <= rs2) & (rs2 <= highbound) & (ps2 < spectralvalues2))[0]
+        wavelengths[len(indices):] = rs2[indices2][0:diff]
+        return wavelengths
+
+
 def collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_photons, quantum_yield, detector_qeff, illumination, pdf_parameters, rng):
     """
     Calculates mean number of photons collected by detector during the exposure time
@@ -639,14 +676,17 @@ def collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_
     discretized_counts = emitted_photons_at_filter.astype(int)  # unfortunately, some discretization needs to be done here
     collected_photons = numpy.zeros_like(discretized_counts)
     
+    all_photons_to_generate = numpy.sum(discretized_counts)
+    print(all_photons_to_generate)
+
     low_lambda = filter_spectrum.x[0]
     high_lambda = filter_spectrum.x[-1]
 
-    for photon in range(len(incident_photons)):
-        photon_wavelengths = naive_rejection_sampler(discretized_counts[photon],emission_spectrum,emission_spectrum.x[0],emission_spectrum.x[-1],pdf_parameters)
-        randnums = rng.uniform(size=discretized_counts[photon])
+    for photontgt in range(len(incident_photons)):
+        photon_wavelengths = naive_rejection_sampler_optimized(discretized_counts[photontgt],emission_spectrum,emission_spectrum.x[0],emission_spectrum.x[-1],pdf_parameters)
+        randnums = rng.uniform(size=discretized_counts[photontgt])
         collected_indices = numpy.where((low_lambda < photon_wavelengths[:]) & (photon_wavelengths[:] < high_lambda) & (randnums[:] < filter_spectrum(photon_wavelengths[:])))[0]
-        collected_photons[photon] = len(collected_indices)         
+        collected_photons[photontgt] = len(collected_indices)         
             
     return collected_photons*detector_qeff
 
