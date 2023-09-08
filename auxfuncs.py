@@ -397,7 +397,7 @@ def interpolate_absorption_spectrum(filename, example_xsection, example_waveleng
     ftest = scipy.interpolate.interp1d(data[:,0],data[:,1])
     c = ftest(example_wavelength)
     multiplicative_factor = example_xsection/c
-    f = scipy.interpolate.interp1d(data[:,0],data[:,1]*multiplicative_factor)
+    f = scipy.interpolate.interp1d(data[:,0],data[:,1]*multiplicative_factor,bounds_error=False,fill_value=0.0)
     if (show == True):
         plt.plot(data[:,0],data[:,1]*multiplicative_factor, 'o', data[:,0], f(data[:,0]), '-')
         plt.show()
@@ -422,7 +422,7 @@ def interpolate_emission_spectrum(filename, log=False, show=False):
     if (log == True):
         f = scipy.interpolate.interp1d(data[:,0],numpy.log(data[:,1]))
     else:
-        f = scipy.interpolate.interp1d(data[:,0],data[:,1])
+        f = scipy.interpolate.interp1d(data[:,0],data[:,1],bounds_error=False,fill_value=0.0)
 
     if (show == True):
         plt.plot(data[:,0], f(data[:,0]), '-')
@@ -581,13 +581,15 @@ def read_pdf_fit(phoretype):
         print("File Laplace_PDFs.dat either missing lines or containing bad data!")
         quit()
     return out[2:6]
-
-def naive_rejection_sampler(spectrum,lowbound,highbound,pdf_parameters):
+        
+def naive_rejection_sampler(n,spectrum,lowbound,highbound,pdf_parameters):
     """
     Keeps rejection sampling a distribution until it succeeds
 
     Parameters
     ----------
+    n : int
+        number of samples to return
     spectrum : obj
         interpolation result
     lowbound : float
@@ -597,16 +599,18 @@ def naive_rejection_sampler(spectrum,lowbound,highbound,pdf_parameters):
     pdf_parameters : 1D array
         parameters of distribution for sampling from emission spectrum
     """
-    laplace = scipy.stats.laplace_asymmetric(loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
     M=pdf_parameters[3]
-    while(True):
-        r = scipy.stats.laplace_asymmetric.rvs(loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
-        if (r<lowbound or r>highbound):
-            continue
-        envelope = M*scipy.stats.laplace_asymmetric.pdf(r,loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
-        p = numpy.random.uniform(0, envelope)
-        if (p < spectrum(r)):
-            return r
+    wavelengths = numpy.empty(n,dtype=float)
+    for i in range(n):
+        while(True):
+            r = scipy.stats.laplace_asymmetric.rvs(loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
+            if (lowbound <= r <= highbound):
+                envelope = M*scipy.stats.laplace_asymmetric.pdf(r,loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
+                p = numpy.random.uniform(0, envelope)
+                if (p < spectrum(r)):
+                    wavelengths[i] = r
+                    break
+    return wavelengths
 
 def collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_photons, quantum_yield, detector_qeff, illumination, pdf_parameters, rng):
     """
@@ -618,8 +622,8 @@ def collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_
         interpolation result
     filter_spectrum : obj
         interpolation result
-    incident_photons : float
-        mean number of photons incident on fluorophore per exposure time
+    incident_photons : 1D array
+        mean numbers of photons incident on fluorophores per exposure time
     quantum_eff : float
         quantum efficiency of fluorophore
     detector_quantum_eff : float
@@ -632,18 +636,18 @@ def collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_
         random number generator (for checking whether photons get transmitted)
     """
     emitted_photons_at_filter = incident_photons*quantum_yield*illumination
-    collected_photons = 0
-    for i in range(int(emitted_photons_at_filter)): # unfortunately, some discretization needs to be done here
-        photon_wavelength = naive_rejection_sampler(emission_spectrum,emission_spectrum.x[0],emission_spectrum.x[-1],pdf_parameters)
-        if (photon_wavelength > filter_spectrum.x[0] and photon_wavelength < filter_spectrum.x[-1]):
-            collected_photons += 1
-            probability = filter_spectrum(photon_wavelength)
-            if (rng.uniform() < probability == True):
-                collected_photons += 1
-            else:
-                continue             
-        else:
-            continue
+    discretized_counts = emitted_photons_at_filter.astype(int)  # unfortunately, some discretization needs to be done here
+    collected_photons = numpy.zeros_like(discretized_counts)
+    
+    low_lambda = filter_spectrum.x[0]
+    high_lambda = filter_spectrum.x[-1]
+
+    for photon in range(len(incident_photons)):
+        photon_wavelengths = naive_rejection_sampler(discretized_counts[photon],emission_spectrum,emission_spectrum.x[0],emission_spectrum.x[-1],pdf_parameters)
+        randnums = rng.uniform(size=discretized_counts[photon])
+        collected_indices = numpy.where((low_lambda < photon_wavelengths[:]) & (photon_wavelengths[:] < high_lambda) & (randnums[:] < filter_spectrum(photon_wavelengths[:])))[0]
+        collected_photons[photon] = len(collected_indices)         
+            
     return collected_photons*detector_qeff
 
 def calculate_single_image(phores, incident_photons, filter_spectrum, NA, n, detector_qeff, rng_seed):
@@ -681,14 +685,14 @@ def calculate_single_image(phores, incident_photons, filter_spectrum, NA, n, det
         
     phoretypes = numpy.unique(phores[:,0]).astype(int)
 
-    for t,phoretype in enumerate(phoretypes):
+    for phoretype in phoretypes:
         emission_spectrum = get_emission_spectrum(phoretype)
         pdf_parameters = read_pdf_fit(phoretype)
         _,props = read_properties(phoretype)
         quantum_yield = props[2]
-        for i in range(phorenum):
-            if (phores[i,0] == phoretype):
-                photon_counts[i] = collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_photons[i], quantum_yield, detector_qeff, illumination, pdf_parameters, rng)
+
+        where_phores = numpy.where(phores[:,0] == phoretype)[0]
+        photon_counts[where_phores] = collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_photons[where_phores], quantum_yield, detector_qeff, illumination, pdf_parameters, rng)
     
     return photon_counts
 
