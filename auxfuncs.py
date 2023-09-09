@@ -443,7 +443,10 @@ def get_absorption_xsection(phoretype, wavelength):
     identifier = str(phoretype).zfill(3)
     filepath = "dye_spectra/" + identifier + "_*_absorption.pkl"
     pkl = glob.glob(filepath)
-    if (len(pkl) != 1):
+    if (len(pkl) == 0):
+        print("No absorption file found for given identifier. Stopping.")
+        quit()
+    elif (len(pkl) > 1):
         print("Multiple absorption files are sharing same identifier. Stopping.")
         print(pkl)
         quit()
@@ -463,8 +466,11 @@ def get_absorption_spectrum(phoretype):
     identifier = str(phoretype).zfill(3)
     filepath = "dye_spectra/" + identifier + "_*_absorption.pkl"
     pkl = glob.glob(filepath)
-    if (len(pkl) != 1):
-        print("Multiple emission files are sharing same identifier. Stopping.")
+    if (len(pkl) == 0):
+        print("No absorption file found for given identifier. Stopping.")
+        quit()
+    elif (len(pkl) != 1):
+        print("Multiple absorption files are sharing same identifier. Stopping.")
         print(pkl)
         quit()
     with open(pkl[0], 'rb') as f:
@@ -483,7 +489,10 @@ def get_emission_spectrum(phoretype):
     identifier = str(phoretype).zfill(3)
     filepath = "dye_spectra/" + identifier + "_*_emission.pkl"
     pkl = glob.glob(filepath)
-    if (len(pkl) != 1):
+    if (len(pkl) == 0):
+        print("No emission file found for given identifier. Stopping.")
+        quit()
+    elif (len(pkl) != 1):
         print("Multiple emission files are sharing same identifier. Stopping.")
         print(pkl)
         quit()
@@ -630,12 +639,12 @@ def naive_rejection_sampler_optimized(n,spectrum,lowbound,highbound,pdf_paramete
     """
     M=pdf_parameters[3]
     wavelengths = numpy.empty(n,dtype=float)
-    rs = scipy.stats.laplace_asymmetric.rvs(loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2],size=(int)(1.5*n))
+    rs = scipy.stats.laplace_asymmetric.rvs(loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2],size=(int)(2.0*n))
     envelopes = M*scipy.stats.laplace_asymmetric.pdf(rs,loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
     ps = numpy.random.uniform(numpy.zeros_like(envelopes), envelopes)
     spectralvalues = spectrum(rs)
     indices = numpy.where((lowbound <= rs) & (rs <= highbound) & (ps < spectralvalues))[0]
-    if (len(indices) > n):
+    if (len(indices) >= n):
         return rs[indices][0:n]
     else:
         wavelengths[0:len(indices)] = rs[indices]
@@ -770,10 +779,8 @@ def radial_signal_profile(phores,photon_counts):
     """
     phorenum = numpy.shape(phores)[0]
     profile = numpy.empty((phorenum,2),dtype=float)
-    for i in range(phorenum):
-        r = math.sqrt(phores[i][1]**2 + phores[i][2]**2)
-        profile[i][0] = r
-        profile[i][1] = photon_counts[i]
+    profile[:,0] = numpy.sqrt(numpy.square(phores[:,1]) + numpy.square(phores[:,2]))
+    profile[:,1] = photon_counts[:]
 
     maxvalue = numpy.amax(profile[:,1])
     if (maxvalue > 0.0):
@@ -854,14 +861,12 @@ def pdf_objective_function(params,spectrum,Npts):
     laplace_values = numpy.empty((Ntotal))
 
     f = 0.0
-    for i in range(Ntotal):
-        spectrum_values[i] = spectrum(xlocs[i])
-        laplace_values[i] = M*laplace.pdf(xlocs[i])
-
-        if (laplace_values[i] > spectrum_values[i]*1.001):
-            f += (laplace_values[i]-spectrum_values[i])**2
-        else:
-            f += 1e3
+    spectrum_values = spectrum(xlocs)
+    laplace_values = M*laplace.pdf(xlocs)
+    indices = numpy.where(laplace_values > spectrum_values*1.001)[0]
+    f += numpy.sum(numpy.square(laplace_values[indices]-spectrum_values[indices]))
+    f += 1e3*(Ntotal-len(indices))
+    
     print("| ", end="",flush=True)
     return f/Ntotal
 
