@@ -4,10 +4,11 @@ import math
 import re
 import numpy
 import matplotlib.pyplot as plt
+import time
 
 def fluorescence_exposure(phores,setup_pars,exc_pars,filter_spectrum,rng_seed=42):
     """
-    Simulates a single exposure of fluorescence microscopy
+    Simulates a single exposure of fluorescence microscopy (equivalent to a "pixel")
 
     Parameters
     ----------
@@ -35,7 +36,7 @@ def fluorescence_exposure(phores,setup_pars,exc_pars,filter_spectrum,rng_seed=42
     #displays fluorophore distribution
     plots.display_2D_fluorophore_field(phores,w0,field_size,Pexc,wavelength)
 
-    intensities = aux.field_add_illumination_intensities(phores, n, wavelength, w0, I0)
+    intensities = aux.gaussian_point_intensities(phores[:,1:4], n, wavelength, w0, I0)
     print("Max intensity: %e" % (numpy.amax(intensities)))
     
     #imports the relevant absorption spectra and calculates cross-section at excitation wavelength
@@ -62,10 +63,32 @@ def fluorescence_exposure(phores,setup_pars,exc_pars,filter_spectrum,rng_seed=42
 
     return photon_counts,hist,profile
 
+def fluorescence_exposure_recompute_grid(phores,photon_counts,setup_pars,exc_pars):
+    """
+    Recomputes pixel map at detector for single exposure
+
+    Parameters
+    ----------
+    phores : 2D array
+        types and positions of fluorophores
+    photon_counts : 1D array
+        numbers of detected photons per fluorophore 
+    setup_pars : 1D array
+        parameters of optical setup and sample medium
+    exc_pars : 1D array
+        parameters of excitation illumination
+    """
+
+    pixel_size = setup_pars[4]
+    field_size = setup_pars[5]
+    w0 = exc_pars[0]
+    hist,_,_ = aux.pixel_binning(phores,photon_counts,w0*field_size,pixel_size)
+    plots.display_detected_image(pixel_size,hist)
+    return hist
 
 def CW_STED_beam_fluorescence_exposure_comparison(phores,setup_pars,exc_pars,STED_pars,filter_spectrum,rng_seed=42):
     """
-    Simulates a single exposure of fluorescence microscopy with and without STED illumination
+    Simulates a single exposure of fluorescence microscopy first without, then with STED illumination
 
     Parameters
     ----------
@@ -97,7 +120,7 @@ def CW_STED_beam_fluorescence_exposure_comparison(phores,setup_pars,exc_pars,STE
     #displays fluorophore distribution
     plots.display_2D_fluorophore_field(phores,w0,field_size,Pexc,wavelength)
 
-    intensities = aux.field_add_illumination_intensities(phores, n, wavelength, w0, I0)
+    intensities = aux.gaussian_point_intensities(phores[:,1:4], n, wavelength, w0, I0)
 
     #imports the relevant absorption spectra and calculates cross-section at excitation wavelength
     xsections = aux.get_all_xsections(phores,wavelength)
@@ -105,15 +128,14 @@ def CW_STED_beam_fluorescence_exposure_comparison(phores,setup_pars,exc_pars,STE
     #as well as the saturation intensities
     Isats = aux.STED_get_all_Isat(phores,STEDxsections,STEDwavelength)
 
-    #calculates the mean numbers of absorbed photons per exposure  
+    #calculates the mean numbers of absorbed photons per exposure
     incident_photons = aux.all_incident(phores, exptime, wavelength, xsections, intensities)
 
     #the following needs to be calculated for STED illumination
     #excitation rates of the main beam
     exc_rates = incident_photons/exptime
     #intensities of STED beam
-    STED_intensities = aux.field_STED_illumination_intensities(phores, STEDwavelength, PSTED, NA)
-
+    STED_intensities = aux.STED_2D_approx_point_intensity(phores[:,1:4], STEDwavelength, PSTED, NA)
     STED_incident_photons = aux.STED_all_incident(phores, intensities, STED_intensities, exptime, wavelength, exc_rates, xsections, Isats)
 
     print("Max intensity\nno STED: %e STED: %e" % (numpy.amax(intensities),numpy.amax(STED_intensities)))
@@ -148,6 +170,32 @@ def CW_STED_beam_fluorescence_exposure_comparison(phores,setup_pars,exc_pars,STE
     plots.compare_profiles(profile,STED_profile,field_size*w0,res1=FWHM,res2=FWHM_STED,popt1=popt,popt2=popt_STED)
 
     return photon_counts,STED_photon_counts,hist,STEDhist,profile,STED_profile
+
+def exposure_comparison_recompute_grid(phores,photon_counts,STED_photon_counts,setup_pars,exc_pars):
+    """
+    Recomputes pixel map at detector for single exposures with and without depletion beam active
+
+    Parameters
+    ----------
+    phores : 2D array
+        types and positions of fluorophores
+    photon_counts : 1D array
+        numbers of detected photons per fluorophore
+    STED_photon_counts : 1D array
+        numbers of detected photons per fluorophore with depletion beam active
+    setup_pars : 1D array
+        parameters of optical setup and sample medium
+    exc_pars : 1D array
+        parameters of excitation illumination
+    """
+
+    pixel_size = setup_pars[4]
+    field_size = setup_pars[5]
+    w0 = exc_pars[0]
+    hist,_,_ = aux.pixel_binning(phores,photon_counts,w0*field_size,pixel_size)
+    STEDhist,_,_ = aux.pixel_binning(phores,STED_photon_counts,w0*field_size,pixel_size)
+    plots.display_detected_images(pixel_size,hist,STEDhist,alt_type="STED")
+    return hist,STEDhist
 
 def define_emission_sampler(phoretype,filename="dye_spectra/Laplace_PDFs.dat",Npts=10,maxiter=100):
     """

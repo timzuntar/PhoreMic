@@ -11,14 +11,14 @@ import scipy.optimize
 import matplotlib.pyplot as plt
 
 
-def gaussian_point_intensity(point_coords, n, wavelength, w0, I0):
+def gaussian_point_intensities(point_coords, n, wavelength, w0, I0):
     """
     Returns intensity of the TEM00 (Gaussian) beam at a point in space.
 
     Parameters
     ----------
-    point_coords : list of float
-        x,y, and z position relative to center of beam waist [m]
+    point_coords : 2D array
+        x,y, and z positions relative to center of beam waist [m]
     n : float
         refractive index of propagation medium
     wavelength : float
@@ -28,20 +28,24 @@ def gaussian_point_intensity(point_coords, n, wavelength, w0, I0):
     I0 : float
         intensity in center of waist [W/m^2]
     """
-    if (numpy.isclose(point_coords[2], 0.0, rtol=1e-05, atol=1e-12, equal_nan=False) == True):
-        return I0*math.exp(-2*(point_coords[0]**2 + point_coords[1]**2)/(w0*w0))
-    else:
-        w = w0 * math.sqrt(1 + (point_coords[2]*wavelength/(math.pi*n*w0*w0))**2)
-        return I0*((w0/w)**2)*math.exp(-2*(point_coords[0]**2 + point_coords[1]**2)/(w*w))
-
+    boolmask = numpy.isclose(point_coords[:,2], 0.0, rtol=1e-05, atol=1e-12, equal_nan=False)   # checks if point is very close (<1 pm) to zero plane
+    zero_indices = numpy.where(boolmask)[0]
+    nonzero_indices = numpy.where(numpy.logical_not(boolmask))[0]
+    intensities = numpy.empty(len(boolmask),dtype=float)    # this saves a little bit of performance as width doesn't need to be computed
+    intensities[zero_indices] = I0*numpy.exp(-2*(numpy.square(point_coords[zero_indices,0]) + numpy.square(point_coords[zero_indices,1]))/(w0*w0))
+    beam_waists = w0 * numpy.sqrt(1 + (point_coords[nonzero_indices,2]*wavelength/(numpy.pi*n*w0*w0))**2)
+    intensities[nonzero_indices] = I0*((w0/beam_waists)**2)*numpy.exp(-2*(numpy.square(point_coords[nonzero_indices,0]) + numpy.square(point_coords[nonzero_indices,1]))/numpy.square(beam_waists))
+    return intensities
+        
 def STED_2D_approx_point_intensity(point_coords, STEDwavelength, P, NA):
     """
-    Intensity of depletion beam using the standing wave approximation, with an analytical solution
+    Intensity of depletion beam using the standing wave approximation, with a simple analytical solution
+    NOTE: out-of-focus beam spread is approximated with characteristics of a Gaussian beam with its waist diameter at the annulus maximum.
 
     Parameters
     ----------
-    point_coords : float
-        refractive index of propagation medium
+    point_coords : 2D array
+        x,y, and z positions relative to center of beam waist [m]
     STEDwavelength : float
         wavelength of depletion beam [m]
     P : float
@@ -49,32 +53,44 @@ def STED_2D_approx_point_intensity(point_coords, STEDwavelength, P, NA):
     NA : float
         numerical aperture of depletion beam
     """
-    maxradius = STEDwavelength/NA
-    radius = math.sqrt(point_coords[0]**2 + point_coords[1]**2)
-    if (radius < maxradius):
-        square = (math.sin(math.pi*NA*radius/STEDwavelength))**2
-        return (2*P/math.pi)*((NA/STEDwavelength)**2) * square
-    else:
-        return 0.0
+    radii = numpy.sqrt(numpy.square(point_coords[:,0]) + numpy.square(point_coords[:,1]))
+    boolmask = numpy.isclose(point_coords[:,2], 0.0, rtol=1e-05, atol=1e-12, equal_nan=False)   # checks if point is very close (<1 pm) to zero plane
+    zero_inside_indices = numpy.where((boolmask) & (radii - STEDwavelength/NA < 0.0))[0]
+    zero_outside_indices = numpy.where((boolmask) & (radii - STEDwavelength/NA >= 0.0))[0]
+    intensities = numpy.empty(len(radii),dtype=float)
+
+    intensities[zero_inside_indices] = ((2*P/numpy.pi) * numpy.square(NA/STEDwavelength)) * numpy.square(numpy.sin(numpy.pi*NA*radii[zero_inside_indices]/STEDwavelength))
+    intensities[zero_outside_indices] = 0.0
+
+    w0 = STEDwavelength/(2*NA)
+    z0 = numpy.pi*w0*w0/STEDwavelength
+    widening = numpy.sqrt(1+numpy.square(point_coords[:,2]/z0))
+    nonzero_inside_indices = numpy.where((numpy.logical_not(boolmask)) & (radii-2*w0*widening < 0.0))[0]
+    nonzero_outside_indices = numpy.where((numpy.logical_not(boolmask)) & (radii-2*w0*widening >= 0.0))[0]
+    intensities[nonzero_inside_indices] = (P/(2*math.pi*numpy.square(w0*widening[nonzero_inside_indices]))) * numpy.square(numpy.sin(numpy.pi*NA*radii[nonzero_inside_indices]/(STEDwavelength*widening[nonzero_inside_indices])))  #TODO: double-check!
+    intensities[nonzero_outside_indices] = 0.0
+    return intensities
 
 def STED_2D_point_intensity(point_coords, STEDwavelength, NA_eff):
     """
     Determines the intensity of depletion beam at chosen point with prediction for a coherent plane wave passing through a 2-pi vortex plate
+    as described by Neupane et al. (2013)
+    NOTE: does not take into account out-of-focus beam spread, should only be used for 2D distributions!
 
     Parameters
     ----------
-    point_coords : float
-        refractive index of propagation medium
+    point_coords : list of float
+        x,y, and z position relative to center of beam waist [m]
     STEDwavelength : float
         wavelength of depletion beam [m]
     NA_eff : float
         effective numerical aperture of depletion beam
     """
     k = 2*math.pi/STEDwavelength
-    x = k*NA_eff*math.sqrt(point_coords[0]**2+point_coords[1]**2)
+    x = k*NA_eff*numpy.sqrt(numpy.square(point_coords[:,0])+numpy.square(point_coords[:,1]))
 
-    C = (0.5*math.pi*k*NA_eff)**2
-    return (C/(x**2))*(scipy.special.jv(1,x)*scipy.special.struve(0,x)-scipy.special.jv(0,x)*scipy.special.struve(1,x))**2
+    C = (0.5*numpy.pi*k*NA_eff)**2
+    return (C/(numpy.square(x)))*numpy.square(scipy.special.jv(1,x)*scipy.special.struve(0,x)-scipy.special.jv(0,x)*scipy.special.struve(1,x))
 
 def STED_2D_intensity_normalization(n, STEDwavelength, P, NA_eff, lossfactor=0.0, integrationwidth=10):
     """
@@ -99,11 +115,9 @@ def STED_2D_intensity_normalization(n, STEDwavelength, P, NA_eff, lossfactor=0.0
     samples = 5001
     rlist = numpy.linspace(1e-9, peakradius*integrationwidth, num=samples, endpoint=True)
     ilist = numpy.empty(samples)
+    ilist = STED_2D_point_intensity(numpy.column_stack((rlist,numpy.zeros_like(rlist),numpy.zeros_like(rlist))),STEDwavelength,NA_eff)*rlist*2*numpy.pi
 
-    for i in range(samples):
-        ilist[i] = STED_2D_point_intensity([rlist[i],0.0,0.0],STEDwavelength,NA_eff)*rlist[i]*2*math.pi
-
-    integral = math.fabs(scipy.integrate.simpson(rlist,ilist))
+    integral = numpy.fabs(scipy.integrate.simpson(rlist,ilist))
     return P*(1.0-lossfactor)/integral
 
 def STED_saturation_intensity(lifetime, STxsection, STwavelength):
@@ -261,54 +275,11 @@ def get_all_xsections(phores,wavelength):
     for i,type in enumerate(phoretypes):
         xsections[i] = get_absorption_xsection(type,wavelength)
     return xsections
-    
-def field_add_illumination_intensities(phores, n, wavelength, w0, I0):
-    """
-    Calculates (expected) illumination intensities for all points
-
-    Parameters
-    ----------
-    phores : 2D array
-        types and positions of fluorophores
-    n : float
-        refractive index of propagation medium
-    wavelength : float
-        illumination wavelength [m]
-    w0 : float
-        beam diameter at waist [m]
-    I0 : float
-        intensity in center of waist [W/m^2]
-    """
-    phorenum = numpy.shape(phores)[0]
-    intensities = numpy.empty(phorenum,dtype=float)
-    for i in range(phorenum):
-        intensities[i] = gaussian_point_intensity((phores[i][1],phores[i][2],phores[i][3]), n, wavelength, w0, I0)
-    return intensities
-
-def field_STED_illumination_intensities(phores, STEDwavelength, P, NA):
-    """
-    Calculates (expected) intensities of STED beam at all points
-
-    Parameters
-    ----------
-    phores : 2D array
-        types and positions of fluorophores
-    STEDwavelength : float
-        wavelength of depletion beam [m]
-    P : float
-        total beam power [W]
-    NA : float
-        numerical aperture of depletion beam
-    """
-    phorenum = numpy.shape(phores)[0]
-    STEDintensities = numpy.empty(phorenum,dtype=float)
-    for i in range(phorenum):
-        STEDintensities[i] = STED_2D_approx_point_intensity((phores[i][1],phores[i][2],phores[i][3]), STEDwavelength, P, NA)
-    return STEDintensities
 
 def illumination_fraction(NA, n):
     """
-    Fraction of solid angle over which emitted light is collected
+    Fraction of solid angle over which emitted light is collected. Assumes source to be exactly in focus,
+    but the errors caused by that are negligible.
 
     Parameters
     ----------
@@ -361,10 +332,9 @@ def all_incident(phores, exptime, wavelength, xsections, intensities):
 
     for t,phoretype in enumerate(phoretypes):
         xsection = xsections[t]
-        for i in range(phorenum):
-            if (phores[i,0] == phoretype):
-                incident_counts[i] = incident_photons_per_exposure(exptime,wavelength,xsection,intensities[i])
-    return incident_counts    
+        where_phores = numpy.where(phores[:,0] == phoretype)[0]
+        incident_counts[where_phores] = incident_photons_per_exposure(exptime,wavelength,xsection,intensities[where_phores])
+    return incident_counts
 
 def STED_all_incident(phores, intensities, STEDintensities, exptime, wavelength, exc_rates, xsections, Isats):
     """
@@ -400,11 +370,11 @@ def STED_all_incident(phores, intensities, STEDintensities, exptime, wavelength,
         lifetime = props[3]
         vibrelaxrate,intersystem,kt1 = read_STED_properties(phoretype)
         ks1 = 1.0/(lifetime)
-        for i in range(phorenum):
-            if (phores[i,0] == phoretype):
-                _,prob = STED_CW_rates(STEDintensities[i], Isat, exc_rates[i], ks1, vibrelaxrate, intersystem=intersystem, kt1=kt1)
-                incident_counts[i] = prob*incident_photons_per_exposure(exptime,wavelength,xsection,intensities[i])
-    return incident_counts  
+
+        where_phores = numpy.where(phores[:,0] == phoretype)[0]
+        _,prob = STED_CW_rates(STEDintensities[where_phores], Isat, exc_rates[where_phores], ks1, vibrelaxrate, intersystem=intersystem, kt1=kt1)
+        incident_counts[where_phores] = prob*incident_photons_per_exposure(exptime,wavelength,xsection,intensities[where_phores])
+    return incident_counts
 
 def interpolate_absorption_spectrum(filename, example_xsection, example_wavelength, show=False):
     """
@@ -425,7 +395,7 @@ def interpolate_absorption_spectrum(filename, example_xsection, example_waveleng
     ftest = scipy.interpolate.interp1d(data[:,0],data[:,1])
     c = ftest(example_wavelength)
     multiplicative_factor = example_xsection/c
-    f = scipy.interpolate.interp1d(data[:,0],data[:,1]*multiplicative_factor)
+    f = scipy.interpolate.interp1d(data[:,0],data[:,1]*multiplicative_factor,bounds_error=False,fill_value=0.0)
     if (show == True):
         plt.plot(data[:,0],data[:,1]*multiplicative_factor, 'o', data[:,0], f(data[:,0]), '-')
         plt.show()
@@ -450,7 +420,7 @@ def interpolate_emission_spectrum(filename, log=False, show=False):
     if (log == True):
         f = scipy.interpolate.interp1d(data[:,0],numpy.log(data[:,1]))
     else:
-        f = scipy.interpolate.interp1d(data[:,0],data[:,1])
+        f = scipy.interpolate.interp1d(data[:,0],data[:,1],bounds_error=False,fill_value=0.0)
 
     if (show == True):
         plt.plot(data[:,0], f(data[:,0]), '-')
@@ -473,7 +443,10 @@ def get_absorption_xsection(phoretype, wavelength):
     identifier = str(phoretype).zfill(3)
     filepath = "dye_spectra/" + identifier + "_*_absorption.pkl"
     pkl = glob.glob(filepath)
-    if (len(pkl) != 1):
+    if (len(pkl) == 0):
+        print("No absorption file found for given identifier. Stopping.")
+        quit()
+    elif (len(pkl) > 1):
         print("Multiple absorption files are sharing same identifier. Stopping.")
         print(pkl)
         quit()
@@ -493,8 +466,11 @@ def get_absorption_spectrum(phoretype):
     identifier = str(phoretype).zfill(3)
     filepath = "dye_spectra/" + identifier + "_*_absorption.pkl"
     pkl = glob.glob(filepath)
-    if (len(pkl) != 1):
-        print("Multiple emission files are sharing same identifier. Stopping.")
+    if (len(pkl) == 0):
+        print("No absorption file found for given identifier. Stopping.")
+        quit()
+    elif (len(pkl) != 1):
+        print("Multiple absorption files are sharing same identifier. Stopping.")
         print(pkl)
         quit()
     with open(pkl[0], 'rb') as f:
@@ -513,7 +489,10 @@ def get_emission_spectrum(phoretype):
     identifier = str(phoretype).zfill(3)
     filepath = "dye_spectra/" + identifier + "_*_emission.pkl"
     pkl = glob.glob(filepath)
-    if (len(pkl) != 1):
+    if (len(pkl) == 0):
+        print("No emission file found for given identifier. Stopping.")
+        quit()
+    elif (len(pkl) != 1):
         print("Multiple emission files are sharing same identifier. Stopping.")
         print(pkl)
         quit()
@@ -609,13 +588,15 @@ def read_pdf_fit(phoretype):
         print("File Laplace_PDFs.dat either missing lines or containing bad data!")
         quit()
     return out[2:6]
-
-def naive_rejection_sampler(spectrum,lowbound,highbound,pdf_parameters):
+        
+def naive_rejection_sampler(n,spectrum,lowbound,highbound,pdf_parameters):
     """
     Keeps rejection sampling a distribution until it succeeds
 
     Parameters
     ----------
+    n : int
+        number of samples to return
     spectrum : obj
         interpolation result
     lowbound : float
@@ -625,16 +606,60 @@ def naive_rejection_sampler(spectrum,lowbound,highbound,pdf_parameters):
     pdf_parameters : 1D array
         parameters of distribution for sampling from emission spectrum
     """
-    laplace = scipy.stats.laplace_asymmetric(loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
     M=pdf_parameters[3]
-    while(True):
-        r = scipy.stats.laplace_asymmetric.rvs(loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
-        if (r<lowbound or r>highbound):
-            continue
-        envelope = M*scipy.stats.laplace_asymmetric.pdf(r,loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
-        p = numpy.random.uniform(0, envelope)
-        if (p < spectrum(r)):
-            return r
+    wavelengths = numpy.empty(n,dtype=float)
+    for i in range(n):
+        while(True):
+            r = scipy.stats.laplace_asymmetric.rvs(loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
+            if (lowbound <= r <= highbound):
+                envelope = M*scipy.stats.laplace_asymmetric.pdf(r,loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
+                p = numpy.random.uniform(0, envelope)
+                if (p < spectrum(r)):
+                    wavelengths[i] = r
+                    break
+    return wavelengths
+
+def naive_rejection_sampler_optimized(n,spectrum,lowbound,highbound,pdf_parameters):
+    """
+    Keeps rejection sampling a distribution until it succeeds. Optimized version of the above function.
+
+    Parameters
+    ----------
+    n : int
+        number of samples to return
+    spectrum : obj
+        interpolation result
+    lowbound : float
+        lower bound of spectrum
+    highbound : float
+        high bound of spectrum
+    pdf_parameters : 1D array
+        parameters of distribution for sampling from emission spectrum
+    """
+    M=pdf_parameters[3]
+    
+    rs = scipy.stats.laplace_asymmetric.rvs(loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2],size=(int)(1.3*n))   #generate a bit extra as it is computationally cheap
+    envelopes = M*scipy.stats.laplace_asymmetric.pdf(rs,loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
+    ps = numpy.random.uniform(numpy.zeros_like(envelopes), envelopes)
+    spectralvalues = spectrum(rs)
+    indices = numpy.where((lowbound <= rs) & (rs <= highbound) & (ps < spectralvalues))[0]
+    if (len(indices) >= n):
+        return rs[indices][0:n]
+    else:
+        simulated_photons = len(indices)
+        wavelengths = numpy.empty(n,dtype=float)
+        wavelengths[0:len(indices)] = rs[indices]
+        while (simulated_photons < n):
+            diff = n-simulated_photons
+            rs2 = scipy.stats.laplace_asymmetric.rvs(loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2],size=max((int)(diff*5*n/(len(indices)+1)),1))
+            envelopes2 = M*scipy.stats.laplace_asymmetric.pdf(rs2,loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
+            ps2 = numpy.random.uniform(numpy.zeros_like(envelopes2), envelopes2)
+            spectralvalues2 = spectrum(rs2)
+            indices2 = numpy.where((lowbound <= rs2) & (rs2 <= highbound) & (ps2 < spectralvalues2))[0]
+            wavelengths[simulated_photons:simulated_photons+min(len(indices2),diff)] = rs2[indices2][0:min(len(indices2),diff)]
+            simulated_photons += len(indices2)
+        return wavelengths
+
 
 def collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_photons, quantum_yield, detector_qeff, illumination, pdf_parameters, rng):
     """
@@ -646,8 +671,8 @@ def collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_
         interpolation result
     filter_spectrum : obj
         interpolation result
-    incident_photons : float
-        mean number of photons incident on fluorophore per exposure time
+    incident_photons : 1D array
+        mean numbers of photons incident on fluorophores per exposure time
     quantum_eff : float
         quantum efficiency of fluorophore
     detector_quantum_eff : float
@@ -660,18 +685,63 @@ def collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_
         random number generator (for checking whether photons get transmitted)
     """
     emitted_photons_at_filter = incident_photons*quantum_yield*illumination
-    collected_photons = 0
-    for i in range(int(emitted_photons_at_filter)):
-        photon_wavelength = naive_rejection_sampler(emission_spectrum,emission_spectrum.x[0],emission_spectrum.x[-1],pdf_parameters)
-        if (photon_wavelength > filter_spectrum.x[0] and photon_wavelength < filter_spectrum.x[-1]):
-            collected_photons += 1
-            probability = filter_spectrum(photon_wavelength)
-            if (rng.uniform() < probability == True):
-                collected_photons += 1
-            else:
-                continue             
-        else:
-            continue
+    discretized_counts = emitted_photons_at_filter.astype(int)  # unfortunately, some discretization needs to be done here
+    collected_photons = numpy.zeros_like(discretized_counts)
+    
+    all_photons_to_generate = numpy.sum(discretized_counts)
+
+    low_lambda = filter_spectrum.x[0]
+    high_lambda = filter_spectrum.x[-1]
+
+    for photontgt in range(len(incident_photons)):
+        photon_wavelengths = naive_rejection_sampler_optimized(discretized_counts[photontgt],emission_spectrum,emission_spectrum.x[0],emission_spectrum.x[-1],pdf_parameters)
+        randnums = rng.uniform(size=discretized_counts[photontgt])
+        collected_indices = numpy.where((low_lambda < photon_wavelengths[:]) & (photon_wavelengths[:] < high_lambda) & (randnums[:] < filter_spectrum(photon_wavelengths[:])))[0]
+        collected_photons[photontgt] = len(collected_indices)         
+            
+    return collected_photons*detector_qeff
+
+def collected_photons_per_exposure_optimized(emission_spectrum, filter_spectrum, incident_photons, quantum_yield, detector_qeff, illumination, pdf_parameters, rng):
+    """
+    Calculates mean number of photons collected by detector during the exposure time. Optimized version of the above function.
+    TODO: separate detector characteristic into a function that accounts for wavelenth-dependent Qeff
+
+    Parameters
+    ----------
+    emission_spectrum : obj
+        interpolation result
+    filter_spectrum : obj
+        interpolation result
+    incident_photons : 1D array
+        mean numbers of photons incident on fluorophores per exposure time
+    quantum_eff : float
+        quantum efficiency of fluorophore
+    detector_quantum_eff : float
+        quantum efficiency of detector
+    illumination : float
+        probability that an emitted photon is collected by microscope optics
+    pdf_parameters : 1D array
+        parameters of distribution for sampling from emission spectrum
+    rng : obj
+        random number generator (for checking whether photons get transmitted)
+    """
+    emitted_photons_at_filter = incident_photons*quantum_yield*illumination
+    discretized_counts = emitted_photons_at_filter.astype(int)  # unfortunately, some discretization needs to be done here
+    collected_photons = numpy.zeros_like(discretized_counts)
+    
+    all_photons_to_generate = numpy.sum(discretized_counts)
+
+    low_lambda = filter_spectrum.x[0]
+    high_lambda = filter_spectrum.x[-1]
+
+    photon_wavelengths = naive_rejection_sampler_optimized(all_photons_to_generate,emission_spectrum,emission_spectrum.x[0],emission_spectrum.x[-1],pdf_parameters)
+    randnums = rng.uniform(size=all_photons_to_generate)
+
+    photonsum = 0
+    for photontgt in range(len(incident_photons)):
+        collected_indices = numpy.where((low_lambda < photon_wavelengths[photonsum:photonsum+discretized_counts[photontgt]]) & (photon_wavelengths[photonsum:photonsum+discretized_counts[photontgt]] < high_lambda) & (randnums[photonsum:photonsum+discretized_counts[photontgt]] < filter_spectrum(photon_wavelengths[photonsum:photonsum+discretized_counts[photontgt]])))[0]
+        collected_photons[photontgt] = len(collected_indices)         
+            
     return collected_photons*detector_qeff
 
 def calculate_single_image(phores, incident_photons, filter_spectrum, NA, n, detector_qeff, rng_seed):
@@ -709,14 +779,14 @@ def calculate_single_image(phores, incident_photons, filter_spectrum, NA, n, det
         
     phoretypes = numpy.unique(phores[:,0]).astype(int)
 
-    for t,phoretype in enumerate(phoretypes):
+    for phoretype in phoretypes:
         emission_spectrum = get_emission_spectrum(phoretype)
         pdf_parameters = read_pdf_fit(phoretype)
         _,props = read_properties(phoretype)
         quantum_yield = props[2]
-        for i in range(phorenum):
-            if (phores[i,0] == phoretype):
-                photon_counts[i] = collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_photons[i], quantum_yield, detector_qeff, illumination, pdf_parameters, rng)
+
+        where_phores = numpy.where(phores[:,0] == phoretype)[0]
+        photon_counts[where_phores] = collected_photons_per_exposure_optimized(emission_spectrum, filter_spectrum, incident_photons[where_phores], quantum_yield, detector_qeff, illumination, pdf_parameters, rng)
     
     return photon_counts
 
@@ -754,10 +824,8 @@ def radial_signal_profile(phores,photon_counts):
     """
     phorenum = numpy.shape(phores)[0]
     profile = numpy.empty((phorenum,2),dtype=float)
-    for i in range(phorenum):
-        r = math.sqrt(phores[i][1]**2 + phores[i][2]**2)
-        profile[i][0] = r
-        profile[i][1] = photon_counts[i]
+    profile[:,0] = numpy.sqrt(numpy.square(phores[:,1]) + numpy.square(phores[:,2]))
+    profile[:,1] = photon_counts[:]
 
     maxvalue = numpy.amax(profile[:,1])
     if (maxvalue > 0.0):
@@ -803,9 +871,12 @@ def FWHM_calculator_lin(profile,w0):
     profile = profile[profile[:, 1] >= 0.4, :]
     profile = profile[profile[:, 1] <= 0.6, :]
 
-    popt,_ = scipy.optimize.curve_fit(linfunc,profile[:,0],profile[:,1],[-1/w0,1.0])
-    FWHM = 2*(0.5-popt[1])/popt[0]
-    return FWHM,popt
+    try:
+        popt,_ = scipy.optimize.curve_fit(linfunc,profile[:,0],profile[:,1],[-1/w0,1.0])
+        FWHM = 2*(0.5-popt[1])/popt[0]
+        return FWHM,popt
+    except:
+        print("FWHM could not be estimated by linear fitting.")
 
 def pdf_objective_function(params,spectrum,Npts):
     """
@@ -835,20 +906,19 @@ def pdf_objective_function(params,spectrum,Npts):
     laplace_values = numpy.empty((Ntotal))
 
     f = 0.0
-    for i in range(Ntotal):
-        spectrum_values[i] = spectrum(xlocs[i])
-        laplace_values[i] = M*laplace.pdf(xlocs[i])
+    spectrum_values = spectrum(xlocs)
+    laplace_values = M*laplace.pdf(xlocs)
+    indices = numpy.where(laplace_values > spectrum_values*1.001)[0]
+    f += numpy.sum(numpy.square(laplace_values[indices]-spectrum_values[indices]))
+    f += 1e3*(Ntotal-len(indices))
 
-        if (laplace_values[i] > spectrum_values[i]*1.001):
-            f += (laplace_values[i]-spectrum_values[i])**2
-        else:
-            f += 1e3
     print("| ", end="",flush=True)
     return f/Ntotal
 
 def optimize_distribution(phoretype,Npts=10,maxiter=100):
     """
-    Calculates the optimal (least wasted evaluations) distribution function for rejection sampling of emitted photon wavelengths
+    Calculates the optimal distribution function for rejection sampling of emitted photon wavelengths,
+    where the optimum distribution defined as the one with fewest wasted photon evaluations. 
 
     Parameters
     ----------
@@ -870,6 +940,8 @@ def optimize_distribution(phoretype,Npts=10,maxiter=100):
     guess = [locguess,25.0,0.6,80.0]
     #bounds = [(spectrum.x[0],spectrum.x[-1]),(0.0,None),(None,None),(0.0,None)]
     print("Starting minimization. This may take several minutes.")
-    result = scipy.optimize.minimize(pdf_objective_function,guess,args=(spectrum,Npts),tol=1.0,method="Nelder-Mead",options={"maxiter": maxiter,'disp': True})
-
-    return result.x
+    try:
+        result = scipy.optimize.minimize(pdf_objective_function,guess,args=(spectrum,Npts),tol=1.0,method="Nelder-Mead",options={"maxiter": maxiter,'disp': True})
+        return result.x
+    except:
+        print("Minimization failed. Please adjust starting parameters.")

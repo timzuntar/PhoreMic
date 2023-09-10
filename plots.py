@@ -4,7 +4,7 @@ import matplotlib.cm as cm
 import numpy
 import scipy.stats
 
-def display_2D_fluorophore_field(phores, w0, latmultiplier,Pexc,wavelength):
+def display_2D_fluorophore_field(phores, w0, latmultiplier, Pexc, wavelength):
     """
     Displays positions of each fluorophore species and the excitation beam waist
 
@@ -41,6 +41,43 @@ def display_2D_fluorophore_field(phores, w0, latmultiplier,Pexc,wavelength):
     plt.xlim([-w0*latmultiplier*1e6*1.1,w0*latmultiplier*1e6*1.1])
     plt.ylabel(r"Y [$\mu$m]")
     plt.ylim([-w0*latmultiplier*1e6*1.1,w0*latmultiplier*1e6*1.1])
+    plt.show()
+    return None
+
+def display_3D_fluorophore_field(phores, w0, latmultiplier, axmultiplier):
+    """
+    Displays positions of each fluorophore species in 3D. Does not currently display beam.
+
+    Parameters
+    ----------
+    phores : 2D array
+        types and positions of fluorophores
+    w0 : float
+        beam waist diameter [microns]
+    latmultiplier : float
+        width and height of created field in multiples of beam waist diameter
+    axmultiplier : float
+        as latmultiplier, but along the z-axis
+    """
+    phoretypes = numpy.unique(phores[:,0]).astype(int)
+
+    fig = plt.figure(figsize=(9, 6), constrained_layout=True)
+    ax = fig.add_subplot(projection='3d')
+
+    for type in phoretypes:
+        typelabel,_ = aux.read_properties(type)
+        ax.scatter3D(phores[phores[:, 0] == type,1]*1e6,phores[phores[:,0] == type,2]*1e6,phores[phores[:,0] == type,3]*1e6,label=typelabel,s=3)
+    
+    ax.axis()
+    plt.legend(bbox_to_anchor=(1.00,0.9), borderaxespad=0)
+
+    plt.title("Generated fluorophore map")
+    ax.set_xlabel(r"X [$\mu$m]")
+    ax.set_xlim([-w0*latmultiplier*1e6*1.1,w0*latmultiplier*1e6*1.1])
+    ax.set_ylabel(r"Y [$\mu$m]")
+    ax.set_ylim([-w0*latmultiplier*1e6*1.1,w0*latmultiplier*1e6*1.1])
+    ax.set_zlabel(r"Z [$\mu$m]")
+    ax.set_zlim([-w0*axmultiplier*1e6*1.1,w0*axmultiplier*1e6*1.1])
     plt.show()
     return None
 
