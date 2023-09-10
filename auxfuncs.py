@@ -622,7 +622,6 @@ def naive_rejection_sampler(n,spectrum,lowbound,highbound,pdf_parameters):
 def naive_rejection_sampler_optimized(n,spectrum,lowbound,highbound,pdf_parameters):
     """
     Keeps rejection sampling a distribution until it succeeds. Optimized version of the above function.
-    TODO: Rewrite the second part with a recursive loop so process doesn't fail even with pathological distributions
 
     Parameters
     ----------
@@ -638,8 +637,8 @@ def naive_rejection_sampler_optimized(n,spectrum,lowbound,highbound,pdf_paramete
         parameters of distribution for sampling from emission spectrum
     """
     M=pdf_parameters[3]
-    wavelengths = numpy.empty(n,dtype=float)
-    rs = scipy.stats.laplace_asymmetric.rvs(loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2],size=(int)(1.1*n))   #generate a bit extra as it is computationally cheap
+    
+    rs = scipy.stats.laplace_asymmetric.rvs(loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2],size=(int)(1.3*n))   #generate a bit extra as it is computationally cheap
     envelopes = M*scipy.stats.laplace_asymmetric.pdf(rs,loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
     ps = numpy.random.uniform(numpy.zeros_like(envelopes), envelopes)
     spectralvalues = spectrum(rs)
@@ -647,14 +646,18 @@ def naive_rejection_sampler_optimized(n,spectrum,lowbound,highbound,pdf_paramete
     if (len(indices) >= n):
         return rs[indices][0:n]
     else:
+        simulated_photons = len(indices)
+        wavelengths = numpy.empty(n,dtype=float)
         wavelengths[0:len(indices)] = rs[indices]
-        diff = n-len(indices)
-        rs2 = scipy.stats.laplace_asymmetric.rvs(loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2],size=(int)(diff*2*n/(len(indices)+1)))
-        envelopes2 = M*scipy.stats.laplace_asymmetric.pdf(rs2,loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
-        ps2 = numpy.random.uniform(numpy.zeros_like(envelopes2), envelopes2)
-        spectralvalues2 = spectrum(rs2)
-        indices2 = numpy.where((lowbound <= rs2) & (rs2 <= highbound) & (ps2 < spectralvalues2))[0]
-        wavelengths[len(indices):] = rs2[indices2][0:diff]
+        while (simulated_photons < n):
+            diff = n-simulated_photons
+            rs2 = scipy.stats.laplace_asymmetric.rvs(loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2],size=max((int)(diff*5*n/(len(indices)+1)),1))
+            envelopes2 = M*scipy.stats.laplace_asymmetric.pdf(rs2,loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
+            ps2 = numpy.random.uniform(numpy.zeros_like(envelopes2), envelopes2)
+            spectralvalues2 = spectrum(rs2)
+            indices2 = numpy.where((lowbound <= rs2) & (rs2 <= highbound) & (ps2 < spectralvalues2))[0]
+            wavelengths[simulated_photons:simulated_photons+min(len(indices2),diff)] = rs2[indices2][0:min(len(indices2),diff)]
+            simulated_photons += len(indices2)
         return wavelengths
 
 
