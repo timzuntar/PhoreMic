@@ -229,5 +229,5 @@ def define_emission_sampler(phoretype,filename="dye_spectra/Laplace_PDFs.dat",Np
         print("Fit accepted. Parameters written to file.")
         return None
     else:
-        print("Fit not accepted. Parameters not written to file.")
+        print("Fit not accepted. Parameters discarded.")
         return None

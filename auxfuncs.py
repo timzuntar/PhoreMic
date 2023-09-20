@@ -591,7 +591,7 @@ def read_pdf_fit(phoretype):
         
 def naive_rejection_sampler(n,spectrum,lowbound,highbound,pdf_parameters):
     """
-    Keeps rejection sampling a distribution until it succeeds
+    Keeps rejection sampling a distribution until it succeeds, but inefficiently. Retained for legacy reasons.
 
     Parameters
     ----------
@@ -621,7 +621,7 @@ def naive_rejection_sampler(n,spectrum,lowbound,highbound,pdf_parameters):
 
 def naive_rejection_sampler_optimized(n,spectrum,lowbound,highbound,pdf_parameters):
     """
-    Keeps rejection sampling a distribution until it succeeds. Optimized version of the above function.
+    Keeps rejection sampling a distribution until it succeeds.
 
     Parameters
     ----------
@@ -663,7 +663,7 @@ def naive_rejection_sampler_optimized(n,spectrum,lowbound,highbound,pdf_paramete
 
 def collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_photons, quantum_yield, detector_qeff, illumination, pdf_parameters, rng):
     """
-    Calculates mean number of photons collected by detector during the exposure time
+    Calculates mean number of photons collected by detector during the exposure time, but inefficiently. Retained for legacy reasons.
 
     Parameters
     ----------
@@ -687,8 +687,6 @@ def collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_
     emitted_photons_at_filter = incident_photons*quantum_yield*illumination
     discretized_counts = emitted_photons_at_filter.astype(int)  # unfortunately, some discretization needs to be done here
     collected_photons = numpy.zeros_like(discretized_counts)
-    
-    all_photons_to_generate = numpy.sum(discretized_counts)
 
     low_lambda = filter_spectrum.x[0]
     high_lambda = filter_spectrum.x[-1]
@@ -703,8 +701,8 @@ def collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_
 
 def collected_photons_per_exposure_optimized(emission_spectrum, filter_spectrum, incident_photons, quantum_yield, detector_qeff, illumination, pdf_parameters, rng):
     """
-    Calculates mean number of photons collected by detector during the exposure time. Optimized version of the above function.
-    TODO: separate detector characteristic into a function that accounts for wavelenth-dependent Qeff
+    Calculates mean number of photons collected by detector during the exposure time.
+    TODO: separate detector characteristic into a function that accounts for wavelenth-dependent quantum yield
 
     Parameters
     ----------
@@ -714,9 +712,9 @@ def collected_photons_per_exposure_optimized(emission_spectrum, filter_spectrum,
         interpolation result
     incident_photons : 1D array
         mean numbers of photons incident on fluorophores per exposure time
-    quantum_eff : float
+    quantum_yield : float
         quantum efficiency of fluorophore
-    detector_quantum_eff : float
+    detector_quantum_eff : float or obj
         quantum efficiency of detector
     illumination : float
         probability that an emitted photon is collected by microscope optics
@@ -735,14 +733,27 @@ def collected_photons_per_exposure_optimized(emission_spectrum, filter_spectrum,
     high_lambda = filter_spectrum.x[-1]
 
     photon_wavelengths = naive_rejection_sampler_optimized(all_photons_to_generate,emission_spectrum,emission_spectrum.x[0],emission_spectrum.x[-1],pdf_parameters)
-    randnums = rng.uniform(size=all_photons_to_generate)
 
-    photonsum = 0
-    for photontgt in range(len(incident_photons)):
-        collected_indices = numpy.where((low_lambda < photon_wavelengths[photonsum:photonsum+discretized_counts[photontgt]]) & (photon_wavelengths[photonsum:photonsum+discretized_counts[photontgt]] < high_lambda) & (randnums[photonsum:photonsum+discretized_counts[photontgt]] < filter_spectrum(photon_wavelengths[photonsum:photonsum+discretized_counts[photontgt]])))[0]
-        collected_photons[photontgt] = len(collected_indices)         
-            
-    return collected_photons*detector_qeff
+    if isinstance(detector_qeff,(int,float)):
+        randnums = rng.uniform(size=all_photons_to_generate)
+
+        photonsum = 0
+        for photontgt in range(len(incident_photons)):
+            sum_end = photonsum+discretized_counts[photontgt]
+            collected_indices = numpy.where((low_lambda < photon_wavelengths[photonsum:sum_end]) & (photon_wavelengths[photonsum:sum_end] < high_lambda) & (randnums[photonsum:sum_end] < filter_spectrum(photon_wavelengths[photonsum:sum_end])))[0]
+            collected_photons[photontgt] = len(collected_indices)         
+
+        return collected_photons*detector_qeff
+    else:
+        randnums = rng.uniform(size=all_photons_to_generate)
+
+        photonsum = 0
+        for photontgt in range(len(incident_photons)):
+            sum_end = photonsum+discretized_counts[photontgt]
+            collected_indices = numpy.where((low_lambda < photon_wavelengths[photonsum:sum_end]) & (photon_wavelengths[photonsum:sum_end] < high_lambda) & (randnums[photonsum:sum_end] < detector_qeff(photon_wavelengths[photonsum:sum_end])*filter_spectrum(photon_wavelengths[photonsum:sum_end])))[0]
+            collected_photons[photontgt] = len(collected_indices)         
+
+        return collected_photons
 
 def calculate_single_image(phores, incident_photons, filter_spectrum, NA, n, detector_qeff, rng_seed):
     """
@@ -764,7 +775,7 @@ def calculate_single_image(phores, incident_photons, filter_spectrum, NA, n, det
         laser wavelength [nm]
     exptime : float
         exposure time [s]
-    detector_qeff : float
+    detector_qeff : float or obj
         quantum efficiency of camera/detector
     rng_seed : int
         seed for random number generator
