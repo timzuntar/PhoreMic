@@ -75,7 +75,7 @@ def STED_2D_point_intensity(point_coords, STEDwavelength, NA_eff):
     """
     Determines the intensity of depletion beam at chosen point with prediction for a coherent plane wave passing through a 2-pi vortex plate
     as described by Neupane et al. (2013)
-    NOTE: does not take into account out-of-focus beam spread, should only be used for 2D distributions!
+    NOTE: does not take into account out-of-focus beam spread and should accordingly only be used for 2D distributions!
 
     Parameters
     ----------
@@ -139,7 +139,7 @@ def STED_saturation_intensity(lifetime, STxsection, STwavelength):
 
 def STED_get_all_Isat(phores, STxsections, STwavelength):
     """
-    Calculates saturation intensities for all fluorophore types
+    Determines saturation intensities for all fluorophore types
     
     Parameters
     ----------
@@ -161,7 +161,7 @@ def STED_get_all_Isat(phores, STxsections, STwavelength):
 
 def STED_effective_saturation(I, Isat, ks1, vibrelaxrate):
     """
-    Effective saturation factor (gamma)
+    Computes the effective saturation factor (written as gamma in a lot of literature)
     
     Parameters
     ----------
@@ -279,7 +279,7 @@ def get_all_xsections(phores,wavelength):
 def illumination_fraction(NA, n):
     """
     Fraction of solid angle over which emitted light is collected. Assumes source to be exactly in focus,
-    but the errors caused by that are negligible.
+    but the errors caused by that are negligible as the depth offset should be much smaller than the focal length.
 
     Parameters
     ----------
@@ -456,7 +456,7 @@ def get_absorption_xsection(phoretype, wavelength):
 
 def get_absorption_spectrum(phoretype):
     """
-    Loads absorption spectrum for chosen fluorophore type
+    Loads absorption spectrum of chosen fluorophore type
 
     Parameters
     ----------
@@ -479,7 +479,7 @@ def get_absorption_spectrum(phoretype):
 
 def get_emission_spectrum(phoretype):
     """
-    Loads emission spectrum for chosen fluorophore type
+    Loads emission spectrum of chosen fluorophore type
 
     Parameters
     ----------
@@ -515,7 +515,7 @@ def get_filter_spectrum(filter_name):
 
 def arbitrary_bandpass_filter_spectrum(low_edge, low_edge_width, high_edge, high_edge_width, transmittivity):
     """
-    Creates user-defined bandpass spectrum with linear transition at edges
+    Creates user-defined bandpass spectrum with linear transition at edges. Helper function until enough predefined spectra are available to choose from.
 
     Parameters
     ----------
@@ -576,7 +576,7 @@ def read_STED_properties(phoretype):
 
 def read_pdf_fit(phoretype):
     """
-    Reads parameters of probability distribution that most efficiently samples emission spectrum from file.
+    Reads parameters of chosen probability distribution (which should most efficiently the sample emission spectrum from a file).
 
     Parameters
     ----------
@@ -591,7 +591,7 @@ def read_pdf_fit(phoretype):
         
 def naive_rejection_sampler(n,spectrum,lowbound,highbound,pdf_parameters):
     """
-    Keeps rejection sampling a distribution until it succeeds, but inefficiently. Retained for legacy reasons.
+    Keeps rejection sampling a distribution until it succeeds, but inefficiently. Deprecated, retained for legacy reasons for now.
 
     Parameters
     ----------
@@ -621,7 +621,7 @@ def naive_rejection_sampler(n,spectrum,lowbound,highbound,pdf_parameters):
 
 def naive_rejection_sampler_optimized(n,spectrum,lowbound,highbound,pdf_parameters):
     """
-    Keeps rejection sampling a distribution until it succeeds.
+    Keeps rejection sampling a distribution until it succeeds. 
 
     Parameters
     ----------
@@ -638,7 +638,7 @@ def naive_rejection_sampler_optimized(n,spectrum,lowbound,highbound,pdf_paramete
     """
     M=pdf_parameters[3]
     
-    rs = scipy.stats.laplace_asymmetric.rvs(loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2],size=(int)(1.3*n))   #generate a bit extra as it is computationally cheap
+    rs = scipy.stats.laplace_asymmetric.rvs(loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2],size=(int)(1.3*n))   #generate a bit extra as it is computationally cheaper than querying too often
     envelopes = M*scipy.stats.laplace_asymmetric.pdf(rs,loc=pdf_parameters[0], scale=pdf_parameters[1],kappa=pdf_parameters[2])
     ps = numpy.random.uniform(numpy.zeros_like(envelopes), envelopes)
     spectralvalues = spectrum(rs)
@@ -663,7 +663,7 @@ def naive_rejection_sampler_optimized(n,spectrum,lowbound,highbound,pdf_paramete
 
 def collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_photons, quantum_yield, detector_qeff, illumination, pdf_parameters, rng):
     """
-    Calculates mean number of photons collected by detector during the exposure time, but inefficiently. Retained for legacy reasons.
+    Calculates mean number of photons collected by detector during the exposure time, but inefficiently. Deprecated, retained for legacy reasons for now.
 
     Parameters
     ----------
@@ -702,7 +702,6 @@ def collected_photons_per_exposure(emission_spectrum, filter_spectrum, incident_
 def collected_photons_per_exposure_optimized(emission_spectrum, filter_spectrum, incident_photons, quantum_yield, detector_qeff, illumination, pdf_parameters, rng):
     """
     Calculates mean number of photons collected by detector during the exposure time.
-    TODO: separate detector characteristic into a function that accounts for wavelenth-dependent quantum yield
 
     Parameters
     ----------

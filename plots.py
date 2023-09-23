@@ -94,7 +94,7 @@ def display_spectral_overview(phoretype,absorption_spectrum,emission_spectrum,fi
     emission_spectrum : obj
         fluorophore emission spectrum
     filter_spectrum : obj
-
+        cumulative spectrum of filters between the sample and detector
     exc_wavelength : float
         wavelength of excitation beam [m]
     alt_wavelength : float
@@ -112,18 +112,15 @@ def display_spectral_overview(phoretype,absorption_spectrum,emission_spectrum,fi
     fig = plt.figure(figsize=(8, 4), constrained_layout=True)
     ax = fig.add_subplot()
 
+    #generate spectra with spacing of 5 points/nm, which should be high enough
     absorption_x = numpy.linspace(absorption_spectrum.x[0], absorption_spectrum.x[-1], num=int((absorption_spectrum.x[-1]-absorption_spectrum.x[0])*5+1), endpoint=True)
     emission_x = numpy.linspace(emission_spectrum.x[0], emission_spectrum.x[-1], num=int((emission_spectrum.x[-1]-emission_spectrum.x[0])*5+1), endpoint=True)
     filter_x = numpy.linspace(filter_spectrum.x[0], filter_spectrum.x[-1], num=int((filter_spectrum.x[-1]-filter_spectrum.x[0])*5+1), endpoint=True)
 
-    absorption_vec = numpy.vectorize(absorption_spectrum)
-    emission_vec = numpy.vectorize(emission_spectrum)
-    filter_vec = numpy.vectorize(filter_spectrum)
-
-    absorption_y = absorption_vec(absorption_x)
+    absorption_y = absorption_spectrum(absorption_x)
     absorption_y /= numpy.max(absorption_y)
-    emission_y = emission_vec(emission_x)
-    filter_y = filter_vec(filter_x)
+    emission_y = emission_spectrum(emission_x)
+    filter_y = filter_spectrum(filter_x)
 
     plt.plot(absorption_x,absorption_y,"-b",label="absorption")
     plt.plot(emission_x,emission_y,"-g",label="emission")
@@ -234,16 +231,13 @@ def display_photon_counts_side_by_side(phores,Pexc,wavelength,PSTED,STEDwaveleng
 
     points = axes[0].scatter(x=phores[:,1]*1e6,y=phores[:,2]*1e6,c=photon_counts,vmin=min(min1,min2), vmax=max(max1,max2),s=3)
     axes[1].scatter(x=phores[:,1]*1e6,y=phores[:,2]*1e6,c=alt_photon_counts,vmin=min(min1,min2), vmax=max(max1,max2),s=3)
-    axes[0].axis("scaled")
-    axes[1].axis("scaled")
-    axes[0].set_xlim([-w0*latmultiplier*1e6*1.1,w0*latmultiplier*1e6*1.1])
-    axes[0].set_ylim([-w0*latmultiplier*1e6*1.1,w0*latmultiplier*1e6*1.1])
-    axes[1].set_xlim([-w0*latmultiplier*1e6*1.1,w0*latmultiplier*1e6*1.1])
-    axes[1].set_ylim([-w0*latmultiplier*1e6*1.1,w0*latmultiplier*1e6*1.1])
-    axes[0].set_xlabel(r"X [$\mu$m]")
-    axes[0].set_ylabel(r"Y [$\mu$m]")
-    axes[1].set_xlabel(r"X [$\mu$m]")
-    axes[1].set_ylabel(r"Y [$\mu$m]")
+    for axnum in range(len(axes)):
+        axes[axnum].axis("scaled")
+        axes[axnum].set_xlim([-w0*latmultiplier*1e6*1.1,w0*latmultiplier*1e6*1.1])
+        axes[axnum].set_xlim([-w0*latmultiplier*1e6*1.1,w0*latmultiplier*1e6*1.1])
+        axes[axnum].set_xlabel(r"X [$\mu$m]")
+        axes[axnum].set_ylabel(r"Y [$\mu$m]")
+        
     plt.suptitle("Number of detected photons per fluorophore\n$P_{exc} = %.2f ~\mu W, \lambda_{exc} = %.0f ~nm, P_{STED} = %.2f ~W, \lambda_{STED} = %.0f ~nm$" % (Pexc*1e6,wavelength*1e9,PSTED,STEDwavelength*1e9))
     plt.colorbar(points,shrink=0.7)
     plt.show()
@@ -305,14 +299,10 @@ def display_detected_images(pixel_size,hist1,hist2,alt_type=None):
 
     points = axes[0].imshow(hist1,vmin=min(min1,min2), vmax=max(max1,max2))
     axes[1].imshow(hist2,vmin=min(min1,min2), vmax=max(max1,max2))
-
-    axes[0].axis("scaled")
-    axes[1].axis("scaled")
-
-    axes[0].set_xlabel(r"X [px]")
-    axes[0].set_ylabel(r"Y [px]")
-    axes[1].set_xlabel(r"X [px]")
-    axes[1].set_ylabel(r"Y [px]")
+    for axnum in range(len(axes)):
+        axes[axnum].axis("scaled")
+        axes[axnum].set_xlabel(r"X [px]")
+        axes[axnum].set_ylabel(r"Y [px]")
 
     plt.suptitle("Number of detected photons per pixel\n pixel size = $%.2f ~\mu m$" % (pixel_size*1e6))
     plt.colorbar(points,shrink=0.7)
