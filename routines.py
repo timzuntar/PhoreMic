@@ -1,10 +1,13 @@
-import auxfuncs as aux 
-import plots
 import math
 import re
-import numpy
-import matplotlib.pyplot as plt
 import time
+
+import matplotlib.pyplot as plt
+import numpy
+
+import auxfuncs as aux 
+import plots
+
 
 def fluorescence_exposure(phores,setup_pars,exc_pars,filter_spectrum,rng_seed=42):
     """
@@ -22,44 +25,33 @@ def fluorescence_exposure(phores,setup_pars,exc_pars,filter_spectrum,rng_seed=42
         seed for random number generators
     """
 
-    n = setup_pars[0]
-    NA = setup_pars[1]
-    exptime = setup_pars[2]
-    detector_qeff = setup_pars[3]
-    pixel_size = setup_pars[4]
-    field_size = setup_pars[5]
-    w0 = exc_pars[0]
-    wavelength = exc_pars[1]
-    Pexc = exc_pars[2]
-    I0 = exc_pars[3]
-
     #displays fluorophore distribution
-    plots.display_2D_fluorophore_field(phores,w0,field_size,Pexc,wavelength)
+    plots.display_2D_fluorophore_field(phores,exc_pars.w0,setup_pars.field_size,exc_pars.Pexc,exc_pars.wavelength)
 
-    intensities = aux.gaussian_point_intensities(phores[:,1:4], n, wavelength, w0, I0)
+    intensities = aux.gaussian_point_intensities(phores[:,1:4], setup_pars.n, exc_pars.wavelength, exc_pars.w0, exc_pars.I0)
     print("Max intensity: %e" % (numpy.amax(intensities)))
     
     #imports the relevant absorption spectra and calculates cross-section at excitation wavelength
-    xsections = aux.get_all_xsections(phores,wavelength)
+    xsections = aux.get_all_xsections(phores,exc_pars.wavelength)
 
     #calculates the mean numbers of absorbed photons per exposure  
-    incident_photons = aux.all_incident(phores, exptime, wavelength, xsections, intensities)
+    incident_photons = aux.all_incident(phores, setup_pars.exptime, exc_pars.wavelength, xsections, intensities)
 
     max_photons = numpy.amax(incident_photons)
     min_photons = numpy.amin(incident_photons)
     print("Maximum/minimum number of incident photons per fluorophore:\n %f / %f" % (max_photons,min_photons))
 
     #calculates the number of photons the detector collects from each fluorophore 
-    photon_counts = aux.calculate_single_image(phores, incident_photons, filter_spectrum, NA, n, detector_qeff, rng_seed)
-    plots.display_detected_photon_counts(phores,Pexc,wavelength,w0,photon_counts,field_size)
+    photon_counts = aux.calculate_single_image(phores, incident_photons, filter_spectrum, setup_pars.NA, setup_pars.n, setup_pars.detector_qeff, rng_seed)
+    plots.display_detected_photon_counts(phores,exc_pars.Pexc,exc_pars.wavelength,exc_pars.w0,photon_counts,setup_pars.field_size)
 
     #simulates a finite detector resolution
-    hist,_,_ = aux.pixel_binning(phores,photon_counts,w0*field_size,pixel_size)
-    plots.display_detected_image(pixel_size,hist)
+    hist,_,_ = aux.pixel_binning(phores,photon_counts,exc_pars.w0*setup_pars.field_size,setup_pars.pixel_size)
+    plots.display_detected_image(setup_pars.pixel_size,hist)
     profile = aux.radial_signal_profile(phores,photon_counts)
-    FWHM,popt = aux.FWHM_calculator_Gaussian(profile,w0)
+    FWHM,popt = aux.FWHM_calculator_Gaussian(profile,exc_pars.w0)
 
-    plots.single_profile(profile,field_size*w0,res=FWHM,popt=popt)
+    plots.single_profile(profile,setup_pars.field_size*exc_pars.w0,res=FWHM,popt=popt)
 
     return photon_counts,hist,profile
 
@@ -79,11 +71,8 @@ def fluorescence_exposure_recompute_grid(phores,photon_counts,setup_pars,exc_par
         parameters of excitation illumination
     """
 
-    pixel_size = setup_pars[4]
-    field_size = setup_pars[5]
-    w0 = exc_pars[0]
-    hist,_,_ = aux.pixel_binning(phores,photon_counts,w0*field_size,pixel_size)
-    plots.display_detected_image(pixel_size,hist)
+    hist,_,_ = aux.pixel_binning(phores,photon_counts,exc_pars.w0*setup_pars.field_size,setup_pars.pixel_size)
+    plots.display_detected_image(setup_pars.pixel_size,hist)
     return hist
 
 def CW_STED_beam_fluorescence_exposure_comparison(phores,setup_pars,exc_pars,STED_pars,filter_spectrum,rng_seed=42):
@@ -104,39 +93,26 @@ def CW_STED_beam_fluorescence_exposure_comparison(phores,setup_pars,exc_pars,STE
         seed for random number generators
     """
 
-    n = setup_pars[0]
-    NA = setup_pars[1]
-    exptime = setup_pars[2]
-    detector_qeff = setup_pars[3]
-    pixel_size = setup_pars[4]
-    field_size = setup_pars[5]
-    w0 = exc_pars[0]
-    wavelength = exc_pars[1]
-    Pexc = exc_pars[2]
-    I0 = exc_pars[3]
-    STEDwavelength = STED_pars[0]
-    PSTED = STED_pars[1]
-
     #displays fluorophore distribution
-    plots.display_2D_fluorophore_field(phores,w0,field_size,Pexc,wavelength)
+    plots.display_2D_fluorophore_field(phores,exc_pars.w0,setup_pars.field_size,exc_pars.Pexc,exc_pars.wavelength)
 
-    intensities = aux.gaussian_point_intensities(phores[:,1:4], n, wavelength, w0, I0)
+    intensities = aux.gaussian_point_intensities(phores[:,1:4], setup_pars.n, exc_pars.wavelength, exc_pars.w0, exc_pars.I0)
 
     #imports the relevant absorption spectra and calculates cross-section at excitation wavelength
-    xsections = aux.get_all_xsections(phores,wavelength)
-    STEDxsections = aux.get_all_xsections(phores,STEDwavelength)
+    xsections = aux.get_all_xsections(phores,exc_pars.wavelength)
+    STEDxsections = aux.get_all_xsections(phores,STED_pars.STEDwavelength)
     #as well as the saturation intensities
-    Isats = aux.STED_get_all_Isat(phores,STEDxsections,STEDwavelength)
+    Isats = aux.STED_get_all_Isat(phores,STEDxsections,STED_pars.STEDwavelength)
 
     #calculates the mean numbers of absorbed photons per exposure
-    incident_photons = aux.all_incident(phores, exptime, wavelength, xsections, intensities)
+    incident_photons = aux.all_incident(phores, setup_pars.exptime, exc_pars.wavelength, xsections, intensities)
 
     #the following needs to be calculated for STED illumination
     #excitation rates of the main beam
-    exc_rates = incident_photons/exptime
+    exc_rates = incident_photons/setup_pars.exptime
     #intensities of STED beam
-    STED_intensities = aux.STED_2D_approx_point_intensity(phores[:,1:4], STEDwavelength, PSTED, NA)
-    STED_incident_photons = aux.STED_all_incident(phores, intensities, STED_intensities, exptime, wavelength, exc_rates, xsections, Isats)
+    STED_intensities = aux.STED_2D_approx_point_intensity(phores[:,1:4], STED_pars.STEDwavelength, STED_pars.PSTED, setup_pars.NA)
+    STED_incident_photons = aux.STED_all_incident(phores, intensities, STED_intensities, setup_pars.exptime, exc_pars.wavelength, exc_rates, xsections, Isats)
 
     print("Max intensity\nno STED: %e STED: %e" % (numpy.amax(intensities),numpy.amax(STED_intensities)))
 
@@ -149,25 +125,25 @@ def CW_STED_beam_fluorescence_exposure_comparison(phores,setup_pars,exc_pars,STE
     print("Minimum number of incident photons per fluorophore:\nwithout STED: %f with STED: %f" % (min_photons,STED_min_photons))
 
     #calculates the number of photons the detector collects from each fluorophore 
-    photon_counts = aux.calculate_single_image(phores, incident_photons, filter_spectrum, NA, n, detector_qeff, rng_seed)
-    STED_photon_counts = aux.calculate_single_image(phores, STED_incident_photons, filter_spectrum, NA, n, detector_qeff, rng_seed)
+    photon_counts = aux.calculate_single_image(phores, incident_photons, filter_spectrum, setup_pars.NA, setup_pars.n, setup_pars.detector_qeff, rng_seed)
+    STED_photon_counts = aux.calculate_single_image(phores, STED_incident_photons, filter_spectrum, setup_pars.NA, setup_pars.n, setup_pars.detector_qeff, rng_seed)
 
-    plots.display_photon_counts_side_by_side(phores,Pexc,wavelength,PSTED,STEDwavelength,w0,photon_counts,STEDwavelength/(NA*2.0),STED_photon_counts,field_size,alt_type="STED")
+    plots.display_photon_counts_side_by_side(phores,exc_pars.Pexc,exc_pars.wavelength,STED_pars.PSTED,STED_pars.STEDwavelength,exc_pars.w0,photon_counts,STED_pars.STEDwavelength/(setup_pars.NA*2.0),STED_photon_counts,setup_pars.field_size,alt_type="STED")
 
     #simulates a finite detector resolution
     #placeholder; right now all types of fluorophores are output on the same histogram, potentially reducing performance 
-    hist,_,_ = aux.pixel_binning(phores,photon_counts,w0*field_size,pixel_size)
-    STEDhist,_,_ = aux.pixel_binning(phores,STED_photon_counts,w0*field_size,pixel_size)
+    hist,_,_ = aux.pixel_binning(phores,photon_counts,exc_pars.w0*setup_pars.field_size,setup_pars.pixel_size)
+    STEDhist,_,_ = aux.pixel_binning(phores,STED_photon_counts,exc_pars.w0*setup_pars.field_size,setup_pars.pixel_size)
 
-    plots.display_detected_images(pixel_size,hist,STEDhist,alt_type="STED")
+    plots.display_detected_images(setup_pars.pixel_size,hist,STEDhist,alt_type="STED")
 
     profile = aux.radial_signal_profile(phores,photon_counts)
     STED_profile = aux.radial_signal_profile(phores,STED_photon_counts)
 
-    FWHM,popt = aux.FWHM_calculator_Gaussian(profile,w0)
-    FWHM_STED,popt_STED = aux.FWHM_calculator_lin(STED_profile,w0)
+    FWHM,popt = aux.FWHM_calculator_Gaussian(profile,exc_pars.w0)
+    FWHM_STED,popt_STED = aux.FWHM_calculator_lin(STED_profile,exc_pars.w0)
 
-    plots.compare_profiles(profile,STED_profile,field_size*w0,res1=FWHM,res2=FWHM_STED,popt1=popt,popt2=popt_STED)
+    plots.compare_profiles(profile,STED_profile,setup_pars.field_size*exc_pars.w0,res1=FWHM,res2=FWHM_STED,popt1=popt,popt2=popt_STED)
 
     return photon_counts,STED_photon_counts,hist,STEDhist,profile,STED_profile
 
@@ -189,12 +165,9 @@ def exposure_comparison_recompute_grid(phores,photon_counts,STED_photon_counts,s
         parameters of excitation illumination
     """
 
-    pixel_size = setup_pars[4]
-    field_size = setup_pars[5]
-    w0 = exc_pars[0]
-    hist,_,_ = aux.pixel_binning(phores,photon_counts,w0*field_size,pixel_size)
-    STEDhist,_,_ = aux.pixel_binning(phores,STED_photon_counts,w0*field_size,pixel_size)
-    plots.display_detected_images(pixel_size,hist,STEDhist,alt_type="STED")
+    hist,_,_ = aux.pixel_binning(phores,photon_counts,exc_pars.w0*setup_pars.field_size,setup_pars.pixel_size)
+    STEDhist,_,_ = aux.pixel_binning(phores,STED_photon_counts,exc_pars.w0*setup_pars.field_size,setup_pars.pixel_size)
+    plots.display_detected_images(setup_pars.pixel_size,hist,STEDhist,alt_type="STED")
     return hist,STEDhist
 
 def define_emission_sampler(phoretype,filename="dye_spectra/Laplace_PDFs.dat",Npts=10,maxiter=100):

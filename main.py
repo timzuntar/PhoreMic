@@ -1,8 +1,12 @@
+from collections import namedtuple
+import math
+
+import numpy
+
 import auxfuncs as aux
 import plots
 import routines
-import math
-import numpy
+
 
 #fluorophore parameters
 density = 5e13
@@ -27,12 +31,16 @@ PSTED = 3e6*Pexc
 rng_seed = 17
 
 #generates positions of fluorescing molecules and illumination intensities at those points
-phores = aux.generate_fluorophore_field(w0, density, phoretype, seed=42, latmultiplier=field_size, axmultiplier=field_size)
+phores = aux.generate_fluorophore_field(w0, density, phoretype, seed=42, latmultiplier=field_size, axmultiplier=field_size,volume=False)
+#plots.display_3D_fluorophore_field(phores, w0, field_size, field_size, Pexc, wavelength)
 
 #packages some parameters for brevity
-setup_pars = [n,NA,exptime,detector_qeff,pixel_size,field_size]
-exc_pars = [w0,wavelength,Pexc,I0]
-STED_pars = [STEDwavelength,PSTED] 
+Setup = namedtuple("Setup","n NA exptime detector_qeff pixel_size field_size")
+Excitation = namedtuple("Excitation","w0 wavelength Pexc I0")
+STED = namedtuple("STED","STEDwavelength PSTED")
+setup_pars = Setup(n,NA,exptime,detector_qeff,pixel_size,field_size)
+exc_pars = Excitation(w0,wavelength,Pexc,I0)
+STED_pars = STED(STEDwavelength,PSTED)
 
 #imports filter spectrum
 filter_spectrum = aux.get_filter_spectrum("test_filter")
